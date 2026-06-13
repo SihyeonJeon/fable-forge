@@ -4,6 +4,8 @@
 
 ![왜 Fable을 막았어?](assets/social-preview.jpg)
 
+![데모: spec 통과 전엔 차단, 통과 후 적용](assets/demo.gif)
+
 **AI 코딩 에이전트에게 "spec 먼저" 규율을 강제하는 게이트.**
 spec을 쓰고 통과하기 전엔 **코드 편집 차단.** Claude Code + Codex.
 
