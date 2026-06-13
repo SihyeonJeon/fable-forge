@@ -13,13 +13,13 @@ spec을 쓰고 통과하기 전엔 **코드 편집 차단.** Claude Code + Codex
 
 ## 한눈에
 
-- **무엇** — 계획 없이 코드 짜는 걸 막고, 변경마다 의사결정 기록을 남김
-- **왜** — 세션 끝나면 추론 증발 / 급하면 검증 생략 → 그 규율을 **비선택·감사가능**으로
-- **아닌 것** — 능력 부스터 아님. 프로세스 강제지 더 똑똑하게 만들진 않음
+- **무엇** · 계획 없이 코드 짜는 걸 막고, 변경마다 의사결정 기록을 남김
+- **왜** · 세션 끝나면 추론 증발 / 급하면 검증 생략 → 그 규율을 **비선택·감사가능**으로
+- **아닌 것** · 능력 부스터 아님. 프로세스 강제지 더 똑똑하게 만들진 않음
 
 ---
 
-## 출처 — Fable 세션에서 수집·추출·코드화
+## 출처 · Fable 세션에서 수집·추출·코드화
 
 추측이 아니라, **Fable로 실제 엔지니어링 작업을 수행하며 수집한 의사결정 데이터**에서 나옴.
 원시 로그를 구조화 스키마로 추출 → 교차검증으로 일반화 → 게이트로 코드화 → runtime 강제:
@@ -35,7 +35,7 @@ Fable 세션 (실작업, 7 프로젝트)
    └─ ⑥ 검증   토큰·품질·적대 벤치 + 23 테스트 (게이밍·우회·malformed 강건화)
 ```
 
-> 관측 가능한 산출물만 — 사적 추론·CoT 미수집, 로컬·시크릿 마스킹.
+> 관측 가능한 산출물만 · 사적 추론·CoT 미수집, 로컬·시크릿 마스킹.
 
 ## 설치
 
@@ -46,12 +46,12 @@ git clone https://github.com/SihyeonJeon/why-was-fable-banned && cd why-was-fabl
 
 ---
 
-## 데이터 — 추출 형식
+## 데이터 · 추출 형식
 
 원시 로그가 아니라 **구조화된 의사결정 스키마**로 추출. 코딩 세션을 두 층으로 캡처:
 
-- **런타임 I/O** (hook 자동) — 프롬프트·파일읽기·명령+출력·편집·플랜·서브에이전트 호출
-- **의사결정 출력** (구조화 강제) — 아래 스키마로:
+- **런타임 I/O** (hook 자동) · 프롬프트·파일읽기·명령+출력·편집·플랜·서브에이전트 호출
+- **의사결정 출력** (구조화 강제) · 아래 스키마로:
 
 ```jsonc
 spec = {
@@ -75,17 +75,17 @@ decision_events = { hypothesis_before, decision, rejected_options, confidence_be
 
 | 형태 | 레이어 | 검사 |
 |---|---|---|
-| 게이트 룰 (deterministic) | `gates/forge_gate.py` | **형식** — 필드·경로실존·forbidden·fail-closed |
-| 룹릭 (LLM judge, cross-family) | `gates/forge_judge.py` | **의미** — 0–2 채점, 게이밍 탐지 |
-| 절차 프롬프트 | `prompts/` · `rubric/` | **정확성** — 숨은 채점기 벤치 |
+| 게이트 룰 (deterministic) | `gates/forge_gate.py` | **형식** · 필드·경로실존·forbidden·fail-closed |
+| 룹릭 (LLM judge, cross-family) | `gates/forge_judge.py` | **의미** · 0–2 채점, 게이밍 탐지 |
+| 절차 프롬프트 | `prompts/` · `rubric/` | **정확성** · 숨은 채점기 벤치 |
 
-등급 자동화(LIGHT/STANDARD/HEAVY)로 토큰 절약 — 보안·결제·마이그만 풀 게이트.
+등급 자동화(LIGHT/STANDARD/HEAVY)로 토큰 절약 · 보안·결제·마이그만 풀 게이트.
 
 ---
 
 ## 에이전트 삽입
 
-**hook 기반 runtime 주입** — user-레벨 설정에 등록 → 전 프로젝트·세션·서브에이전트·오케스트레이션 워커가 상속:
+**hook 기반 runtime 주입** · user-레벨 설정에 등록 → 전 프로젝트·세션·서브에이전트·오케스트레이션 워커가 상속:
 
 | hook | 동작 |
 |---|---|
@@ -94,10 +94,10 @@ decision_events = { hypothesis_before, decision, rejected_options, confidence_be
 | `PostToolUse` | 편집 경로 기록 → `forbidden_paths` 위반 검증 |
 | `Stop` | done 게이트 미충족 시 경고 |
 
-- **Claude Code** — native 훅이 발화 → **in-session 하드차단** (한 세션, spec만 추가, LIGHT <2× 토큰)
-- **Codex** — `forge-codex-accept "<goal>" --repo <dir>`: 버리는 git worktree서 작업 →
+- **Claude Code** · native 훅이 발화 → **in-session 하드차단** (한 세션, spec만 추가, LIGHT <2× 토큰)
+- **Codex** · `forge-codex-accept "<goal>" --repo <dir>`: 버리는 git worktree서 작업 →
   **게이트 통과분만 실 repo에 apply** (unspeced/forbidden 작업이 repo에 도달 못 함)
-- **모델 무관** — 게이트 엔진은 stdlib `python3`, 어떤 모델에도 동일 강제. 상태는 프로젝트 `.forge/`에 로컬
+- **모델 무관** · 게이트 엔진은 stdlib `python3`, 어떤 모델에도 동일 강제. 상태는 프로젝트 `.forge/`에 로컬
 
 ---
 
