@@ -112,7 +112,7 @@ echo "== 7. adversarial: hook exemption over-match (clean payloads) =="
 python3 - "$HOOKS" "$GATE" >/tmp/adv.txt 2>&1 <<'PY'
 import json, os, subprocess, sys, tempfile
 HOOKS, GATE = sys.argv[1], sys.argv[2]
-D = tempfile.mkdtemp(); env = dict(os.environ, CLAUDE_PROJECT_DIR=D); env.pop("FORGE_BYPASS", None)
+D = tempfile.mkdtemp(); env = dict(os.environ, CLAUDE_PROJECT_DIR=D, FORGE_HOME=tempfile.mkdtemp()); env.pop("FORGE_BYPASS", None)
 subprocess.run([sys.executable, GATE, "scaffold", "--root", D, "--goal", "add x"], capture_output=True)
 def pre(p): return subprocess.run([sys.executable, f"{HOOKS}/pre_tool_use.py"], input=json.dumps(p), capture_output=True, text=True, env=env).returncode
 def out(n, c): print(f"{'PASS' if c else 'FAIL'}|{n}")
@@ -127,16 +127,21 @@ echo "== 8. in-session toggle (forge off / on) =="
 python3 - "$HOOKS" "$GATE" >/tmp/tog.txt 2>&1 <<'PY'
 import json, os, subprocess, sys, tempfile
 HOOKS, GATE = sys.argv[1], sys.argv[2]
-D = tempfile.mkdtemp(); env = dict(os.environ, CLAUDE_PROJECT_DIR=D); env.pop("FORGE_BYPASS", None)
+D = tempfile.mkdtemp(); env = dict(os.environ, CLAUDE_PROJECT_DIR=D, FORGE_HOME=tempfile.mkdtemp()); env.pop("FORGE_BYPASS", None)
 subprocess.run([sys.executable, GATE, "scaffold", "--root", D, "--goal", "add x"], capture_output=True)
-def ups(p): return subprocess.run([sys.executable, f"{HOOKS}/user_prompt_submit.py"], input=json.dumps({"prompt": p, "cwd": D}), capture_output=True, text=True, env=env).stdout
-def edit_rc(): return subprocess.run([sys.executable, f"{HOOKS}/pre_tool_use.py"], input=json.dumps({"tool_name": "Edit", "tool_input": {"file_path": D + "/a.py"}, "cwd": D}), capture_output=True, text=True, env=env).returncode
+def ups(p, sid="S1"): return subprocess.run([sys.executable, f"{HOOKS}/user_prompt_submit.py"], input=json.dumps({"prompt": p, "cwd": D, "session_id": sid}), capture_output=True, text=True, env=env).stdout
+def edit_rc(sid="S1"): return subprocess.run([sys.executable, f"{HOOKS}/pre_tool_use.py"], input=json.dumps({"tool_name": "Edit", "tool_input": {"file_path": D + "/a.py"}, "cwd": D, "session_id": sid}), capture_output=True, text=True, env=env).returncode
+def state():
+    p = os.path.join(D, ".forge", "STATE"); return open(p).read().strip() if os.path.exists(p) else "(none)"
 def out(n, c): print(f"{'PASS' if c else 'FAIL'}|{n}")
 out("edit blocked before toggle", edit_rc() == 2)
-o = ups("forge off"); out("forge off blocks prompt + creates OFF", '"decision": "block"' in o and os.path.exists(D + "/.forge/OFF"))
+o = ups("forge off"); out("forge off blocks prompt + project STATE=off", '"decision": "block"' in o and state() == "off")
 out("edit allowed while off", edit_rc() == 0)
-ups("forge on"); out("forge on removes OFF", not os.path.exists(D + "/.forge/OFF"))
+ups("forge on"); out("forge on -> project STATE=on", state() == "on")
 out("edit blocked again after on", edit_rc() == 2)
+ups("forge off"); ups("forge on here", "HARD")
+out("session 'on here' overrides project off", edit_rc("HARD") == 2)
+out("other session inherits project off", edit_rc("OTHER") == 0)
 PY
 while IFS='|' read -r st name; do chk "$st" "PASS" "$name"; done < /tmp/tog.txt
 

@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (read_payload, project_root, run_gate, tool_name,  # noqa: E402
-                    edit_targets_blob, edited_paths, is_off, EDIT_TOOLS)
+                    edit_targets_blob, edited_paths, is_off, session_id, EDIT_TOOLS)
 
 
 def _is_forge(p: str) -> bool:
@@ -27,8 +27,8 @@ def main() -> int:
     if tool_name(payload) not in EDIT_TOOLS:
         return 0
     root = project_root(payload)
-    if is_off(root):
-        return 0  # gate toggled off for this project
+    if is_off(root, session_id(payload)):
+        return 0  # gate toggled off at session/project/machine scope
 
     # No determinable edit target (degenerate payload / unknown future tool shape):
     # fail OPEN so a tool-shape change can never brick the host's edit pipeline.

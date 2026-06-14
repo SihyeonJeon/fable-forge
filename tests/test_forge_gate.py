@@ -321,5 +321,69 @@ class Contract(unittest.TestCase):
             self.assertIn("similar_implementations", buf.getvalue())
 
 
+class OnOffState(unittest.TestCase):
+    """3-scope on/off: session > project > machine > default ON."""
+
+    def setUp(self):
+        self.d = Path(tempfile.mkdtemp())
+        self.home = tempfile.mkdtemp()
+        self._old = os.environ.get("FORGE_HOME")
+        os.environ["FORGE_HOME"] = self.home  # isolate machine scope from the real ~/.forge
+
+    def tearDown(self):
+        if self._old is None:
+            os.environ.pop("FORGE_HOME", None)
+        else:
+            os.environ["FORGE_HOME"] = self._old
+
+    def tog(self, scope, val, sid=""):
+        fg.main(["toggle", "--root", str(self.d), "--scope", scope, "--set", val] + (["--sid", sid] if sid else []))
+
+    def test_default_on(self):
+        self.assertEqual(fg.effective_state(self.d, "S1"), "on")
+
+    def test_machine_off_then_project_on_overrides(self):
+        self.tog("machine", "off")
+        self.assertEqual(fg.effective_state(self.d, "S1"), "off")
+        self.tog("project", "on")
+        self.assertEqual(fg.effective_state(self.d, "S1"), "on")
+
+    def test_session_overrides_project(self):
+        self.tog("project", "off")
+        self.tog("session", "on", "HARD")
+        self.assertEqual(fg.effective_state(self.d, "HARD"), "on")   # the one hard session
+        self.assertEqual(fg.effective_state(self.d, "OTHER"), "off")  # everyone else inherits
+
+    def test_legacy_off_marker_still_off(self):
+        (self.d / ".forge").mkdir(parents=True, exist_ok=True)
+        (self.d / ".forge" / "OFF").write_text("", encoding="utf-8")
+        self.assertEqual(fg.effective_state(self.d, "S1"), "off")
+
+    def test_machine_dir_distinct_from_home_project(self):
+        old = os.environ.pop("FORGE_HOME", None)
+        try:
+            md = fg._machine_dir().resolve()
+            self.assertNotEqual(md, (Path.home() / ".forge").resolve(),
+                                "machine state must not collide with a $HOME project's .forge")
+        finally:
+            if old is not None:
+                os.environ["FORGE_HOME"] = old
+
+    def test_session_sid_cannot_escape_sessions_dir(self):
+        evil = "../../../../tmp/forge_pwn"
+        self.tog("session", "off", evil)
+        p = fg._session_state_path(self.d, evil).resolve()
+        sessions = (self.d / ".forge" / "sessions").resolve()
+        self.assertTrue(str(p).startswith(str(sessions)), f"{p} escaped {sessions}")
+        self.assertEqual(fg.effective_state(self.d, evil), "off")
+
+    def test_toggle_project_migrates_legacy_marker(self):
+        (self.d / ".forge").mkdir(parents=True, exist_ok=True)
+        (self.d / ".forge" / "OFF").write_text("", encoding="utf-8")
+        self.tog("project", "on")  # should clear the legacy OFF and set STATE=on
+        self.assertFalse((self.d / ".forge" / "OFF").exists())
+        self.assertEqual(fg.effective_state(self.d, "S1"), "on")
+
+
 if __name__ == "__main__":
     unittest.main()

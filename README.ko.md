@@ -49,7 +49,16 @@ git clone https://github.com/SihyeonJeon/why-was-fable-banned && cd why-was-fabl
 **스코프**
 - `sh install.sh` = 이 머신의 **모든 Claude Code 프로젝트** (서브에이전트·오케스트레이션 워커 포함)
 - `sh install.sh --here` = **이 repo만** (Claude Code 프로젝트 설정)
-- `forge off` / `forge on` / `forge status` = 세션 내 토글, hook이 처리(모델에 안 감). **프로젝트 단위** 플래그(`.forge/OFF`)라 세션 넘어 유지
+- **세션 내 3-스코프 토글** (입력창에 타이핑, hook이 처리·모델에 안 감):
+
+  | 입력 | 범위 | 유지 |
+  |---|---|---|
+  | `forge off` / `forge on` | 이 **프로젝트** 디렉토리 | 이 repo 세션 전체 |
+  | `forge off here` / `forge on here` | 이 **세션**만 | 이 대화 |
+  | `forge off all` / `forge on all` | **머신 전체** | 어디서나 |
+
+  세부 우선(session > project > machine > 기본 on) — 프로젝트는 끄고 어려운 세션 하나만 켤 수 있음. 파일 기반이라 재부팅해도 유지. `forge status`로 3개 다 확인. 일회성 우회: `FORGE_BYPASS=1`
+- **상태 표시줄**: 게이트 켜져 있으면 Claude Code 하단에 `[why-was-fable-banned]` 표시 (기존 statusLine 없을 때만 자동 설치, 있으면 추가법 안내 — 절대 덮어쓰지 않음)
 - **Claude Code 도는 어디서나** (터미널·VS Code·JetBrains 확장·데스크톱, 같은 hook 공유) + Codex. Cursor 자체 에이전트 등 비-Claude/Codex엔 미적용
 
 ---

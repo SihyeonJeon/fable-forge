@@ -36,7 +36,16 @@ cd why-was-fable-banned && sh install.sh
 
 - `sh install.sh` installs **machine-wide**: every Claude Code project on this computer (and every subagent / orchestrated worker) inherits the gate
 - `sh install.sh --here` installs for **this repo only** (Claude Code project-level `.claude/settings.json`)
-- `forge off` / `forge on` / `forge status` toggle in-session; handled by the hook, never sent to the model. It flips a per-**project** flag (`.forge/OFF`), so it persists across sessions in that repo until you flip it back
+- **Toggle in-session at three scopes** by typing (the hook handles it, never sent to the model):
+
+  | type | scope | persists |
+  | --- | --- | --- |
+  | `forge off` / `forge on` | this **project** dir | across sessions in this repo |
+  | `forge off here` / `forge on here` | this **session** only | this chat |
+  | `forge off all` / `forge on all` | the whole **machine** | everywhere |
+
+  Most-specific wins (session > project > machine > default on), so you can turn the project off and force one hard session on. State is a file, so it survives reboots until you flip it back. `forge status` shows all three. One-off env bypass: `FORGE_BYPASS=1`.
+- **Status line**: when the gate is on, `[why-was-fable-banned]` shows in the Claude Code status line (installed only if you don't already have one; otherwise the installer prints how to add the segment)
 - **Works wherever Claude Code runs**: terminal, the VS Code and JetBrains extensions, desktop (they share the same hooks), plus Codex. It does not apply to non-Claude-Code/Codex agents (e.g. Cursor's own agent)
 
 ## How it works

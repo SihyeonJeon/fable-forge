@@ -43,9 +43,20 @@ def run_gate(*args: str) -> tuple[int, str]:
         return 0, f"forge gate skipped: {exc}"
 
 
-def is_off(root) -> bool:
-    """Gate disabled for this project (toggled in-session with 'forge off')."""
-    return (Path(root) / ".forge" / "OFF").exists()
+def session_id(payload: dict) -> str:
+    return str(payload.get("session_id") or "")
+
+
+def is_off(root, sid: str = "") -> bool:
+    """Gate disabled at the effective scope (session > project > machine > default on).
+    Delegates to the gate's `state` command so there is one resolver. Fails toward ON
+    (enforce) if state can't be determined."""
+    args = ["state", "--root", str(root)]
+    if sid:
+        args += ["--sid", str(sid)]
+    _, out = run_gate(*args)
+    last = (out.strip().splitlines() or [""])[-1].strip().lower()
+    return last == "off"
 
 
 def tool_name(payload: dict) -> str:

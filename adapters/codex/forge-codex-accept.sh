@@ -25,6 +25,9 @@ while [ $# -gt 0 ]; do case "$1" in --repo) REPO="$2"; shift 2;; *) GOAL="$1"; s
 [ -n "$GOAL" ] || { echo "usage: forge-codex-accept \"<goal>\" [--repo DIR]" >&2; exit 2; }
 
 REPO="$(cd "$REPO" && pwd)"
+# Indicator (Codex has no custom status line like Claude Code, so we announce on the
+# stream instead): make it obvious the gate is mediating this run.
+echo "[why-was-fable-banned] gate active — worktree-accept (only a gate-passing diff reaches $REPO)" >&2
 git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || { echo "forge: --repo must be a git repo" >&2; exit 2; }
 BASE="$(git -C "$REPO" rev-parse HEAD)"
 WT="${TMPDIR:-/tmp}/forge-run-$(git -C "$REPO" rev-parse --short HEAD)-$$"

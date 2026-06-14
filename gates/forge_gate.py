@@ -14,6 +14,8 @@ Subcommands:
   close     --root R                         clear ACTIVE (after done gate passes)
   classify  --text T                         exit 0 if prompt is work-shaped, else 1
   contract  --root R                          print the grade's full pass-conditions (inject up front)
+  toggle    --root R --scope S --set on|off    turn the gate on/off at session|project|machine scope
+  state     --root R [--sid ID] [--verbose]    print effective on/off (most-specific scope wins)
 
 Exit codes: 0 = pass/yes, 1 = fail/no, 2 = usage/internal error.
 """
@@ -21,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import hashlib
 import json
 import os
 import re
@@ -80,6 +83,65 @@ def spec_path(root: Path) -> Path:
 
 def active_path(root: Path) -> Path:
     return root / FORGE_DIR / ACTIVE_NAME
+
+
+# ----------------------------------------------------------- on/off state ----
+# The gate can be turned on/off at three scopes; the most specific set wins:
+#   session  (this conversation)      ->  <root>/.forge/sessions/<session_id>
+#   project  (this repo dir)          ->  <root>/.forge/STATE   (legacy: .forge/OFF)
+#   machine  (whole desktop)          ->  ~/.forge/STATE  (override dir: $FORGE_HOME)
+# Each STATE file holds "on" or "off"; absence = inherit the next scope; default ON.
+SCOPES = ("session", "project", "machine")
+
+
+def _machine_dir() -> Path:
+    # Must NOT be any project's <root>/.forge — else a Claude project opened at $HOME
+    # would make `forge off` (project) collide with machine state. Use the XDG config dir.
+    if os.environ.get("FORGE_HOME"):
+        return Path(os.environ["FORGE_HOME"])
+    base = os.environ.get("XDG_CONFIG_HOME") or (Path.home() / ".config")
+    return Path(base) / "forge"
+
+
+def _read_state(p: Path):
+    try:
+        if p.exists():
+            v = p.read_text(encoding="utf-8").strip().lower()
+            if v in ("on", "off"):
+                return v
+    except Exception:
+        pass
+    return None
+
+
+def _safe_sid(sid) -> str:
+    # sid is an arbitrary runtime string — never use it as a path directly (/, .., abs
+    # would escape the sessions dir). Hash to a fixed, collision-resistant, escape-proof
+    # filename component (a plain char-strip would collide, e.g. "a/b" vs "a_b").
+    return hashlib.sha256(str(sid).encode("utf-8", "replace")).hexdigest()[:32]
+
+
+def _session_state_path(root, sid) -> Path:
+    return Path(root) / FORGE_DIR / "sessions" / _safe_sid(sid)
+
+
+def _scope_states(root, sid):
+    """(session, project, machine) raw state, each 'on' / 'off' / None (inherit)."""
+    sess = _read_state(_session_state_path(root, sid)) if sid else None
+    proj = _read_state(Path(root) / FORGE_DIR / "STATE")
+    if proj is None and (Path(root) / FORGE_DIR / "OFF").exists():
+        proj = "off"  # back-compat with the old binary OFF marker
+    mach = _read_state(_machine_dir() / "STATE")
+    return sess, proj, mach
+
+
+def effective_state(root, sid=None) -> str:
+    """Resolve on/off by precedence: session > project > machine > default ON."""
+    sess, proj, mach = _scope_states(root, sid)
+    for s in (sess, proj, mach):
+        if s:
+            return s
+    return "on"
 
 
 def load_spec(root: Path):
@@ -471,6 +533,43 @@ def cmd_close(args) -> int:
     return 0
 
 
+def cmd_toggle(args) -> int:
+    root = Path(args.root).resolve()
+    val = (args.set or "").lower()
+    if val not in ("on", "off"):
+        print("forge: --set must be on|off", file=sys.stderr)
+        return 2
+    scope = args.scope
+    if scope == "machine":
+        d = _machine_dir(); d.mkdir(parents=True, exist_ok=True)
+        (d / "STATE").write_text(val, encoding="utf-8")
+    elif scope == "session":
+        if not args.sid:
+            print("forge: session scope needs --sid (no session id available)", file=sys.stderr)
+            return 2
+        p = _session_state_path(root, args.sid); p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(val, encoding="utf-8")
+    else:  # project
+        d = root / FORGE_DIR; d.mkdir(parents=True, exist_ok=True)
+        (d / "STATE").write_text(val, encoding="utf-8")
+        leg = d / "OFF"
+        if leg.exists():
+            leg.unlink()  # migrate the legacy binary marker into STATE
+    print(f"forge: {scope} set {val} | effective now {effective_state(root, args.sid)}")
+    return 0
+
+
+def cmd_state(args) -> int:
+    root = Path(args.root).resolve()
+    eff = effective_state(root, args.sid)
+    if args.verbose:
+        sess, proj, mach = _scope_states(root, args.sid)
+        print(f"effective {eff} | session {sess or '-'} | project {proj or '-'} | machine {mach or '-'}")
+    else:
+        print(eff)  # single token "on"/"off" — consumed by hooks + statusline
+    return 0
+
+
 def cmd_classify(args) -> int:
     t = args.text or ""
     if any(t.rstrip().endswith(s) for s in QUESTION_KO_ENDINGS):
@@ -497,6 +596,13 @@ def main(argv=None) -> int:
     c.add_argument("--force", action="store_true"); c.set_defaults(fn=cmd_close)
     cl = sub.add_parser("classify"); cl.add_argument("--text", default=""); cl.set_defaults(fn=cmd_classify)
     ct = sub.add_parser("contract"); ct.add_argument("--root", required=True); ct.set_defaults(fn=cmd_contract)
+    tg = sub.add_parser("toggle"); tg.add_argument("--root", required=True)
+    tg.add_argument("--scope", choices=SCOPES, default="project")
+    tg.add_argument("--set", required=True); tg.add_argument("--sid", default="")
+    tg.set_defaults(fn=cmd_toggle)
+    sx = sub.add_parser("state"); sx.add_argument("--root", required=True)
+    sx.add_argument("--sid", default=""); sx.add_argument("--verbose", action="store_true")
+    sx.set_defaults(fn=cmd_state)
 
     args = p.parse_args(argv)
     try:
