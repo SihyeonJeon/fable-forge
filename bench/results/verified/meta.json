@@ -1,0 +1,506 @@
+[
+  {
+    "instance_id": "psf__requests-2931",
+    "arm": "naked",
+    "tokens": 493751,
+    "cost": 0.65942,
+    "turns": 16,
+    "patch_bytes": 793,
+    "secs": 132
+  },
+  {
+    "instance_id": "psf__requests-2931",
+    "arm": "gated",
+    "tokens": 1130662,
+    "cost": 1.3275185,
+    "turns": 30,
+    "patch_bytes": 731,
+    "secs": 275
+  },
+  {
+    "instance_id": "pallets__flask-5014",
+    "arm": "naked",
+    "tokens": 98313,
+    "cost": 0.1637965,
+    "turns": 4,
+    "patch_bytes": 435,
+    "secs": 17
+  },
+  {
+    "instance_id": "pallets__flask-5014",
+    "arm": "gated",
+    "tokens": 1002335,
+    "cost": 1.149003,
+    "turns": 27,
+    "patch_bytes": 435,
+    "secs": 197
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7982",
+    "arm": "naked",
+    "tokens": 97566,
+    "cost": 0.18063749999999998,
+    "turns": 4,
+    "patch_bytes": 475,
+    "secs": 18
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7982",
+    "arm": "gated",
+    "tokens": 435848,
+    "cost": 0.5789345,
+    "turns": 15,
+    "patch_bytes": 475,
+    "secs": 99
+  },
+  {
+    "instance_id": "psf__requests-1142",
+    "arm": "naked",
+    "tokens": 178366,
+    "cost": 0.267532,
+    "turns": 7,
+    "patch_bytes": 802,
+    "secs": 43
+  },
+  {
+    "instance_id": "psf__requests-1142",
+    "arm": "gated",
+    "tokens": 602282,
+    "cost": 0.7647535000000001,
+    "turns": 19,
+    "patch_bytes": 802,
+    "secs": 137
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7571",
+    "arm": "naked",
+    "tokens": 244952,
+    "cost": 0.3438955,
+    "turns": 9,
+    "patch_bytes": 1330,
+    "secs": 64
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7571",
+    "arm": "gated",
+    "tokens": 1300085,
+    "cost": 1.3925459999999998,
+    "turns": 28,
+    "patch_bytes": 1659,
+    "secs": 230
+  },
+  {
+    "instance_id": "psf__requests-5414",
+    "arm": "naked",
+    "tokens": 133420,
+    "cost": 0.258303,
+    "turns": 5,
+    "patch_bytes": 571,
+    "secs": 36
+  },
+  {
+    "instance_id": "psf__requests-5414",
+    "arm": "gated",
+    "tokens": 740338,
+    "cost": 0.9715354999999999,
+    "turns": 20,
+    "patch_bytes": 571,
+    "secs": 160
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7432",
+    "arm": "naked",
+    "tokens": 457816,
+    "cost": 0.523228,
+    "turns": 16,
+    "patch_bytes": 490,
+    "secs": 112
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7432",
+    "arm": "gated",
+    "tokens": 1280853,
+    "cost": 1.319898,
+    "turns": 33,
+    "patch_bytes": 490,
+    "secs": 249
+  },
+  {
+    "instance_id": "psf__requests-6028",
+    "arm": "naked",
+    "tokens": 499957,
+    "cost": 0.6931090000000001,
+    "turns": 15,
+    "patch_bytes": 486,
+    "secs": 137
+  },
+  {
+    "instance_id": "psf__requests-6028",
+    "arm": "gated",
+    "tokens": 583871,
+    "cost": 0.889203,
+    "turns": 17,
+    "patch_bytes": 486,
+    "secs": 234
+  },
+  {
+    "instance_id": "pytest-dev__pytest-5809",
+    "arm": "naked",
+    "tokens": 73671,
+    "cost": 0.163439,
+    "turns": 3,
+    "patch_bytes": 416,
+    "secs": 17
+  },
+  {
+    "instance_id": "pytest-dev__pytest-5809",
+    "arm": "gated",
+    "tokens": 494067,
+    "cost": 0.6424335000000001,
+    "turns": 16,
+    "patch_bytes": 416,
+    "secs": 99
+  },
+  {
+    "instance_id": "psf__requests-1921",
+    "arm": "naked",
+    "tokens": 152383,
+    "cost": 0.24883549999999996,
+    "turns": 6,
+    "patch_bytes": 426,
+    "secs": 35
+  },
+  {
+    "instance_id": "psf__requests-1921",
+    "arm": "gated",
+    "tokens": 764358,
+    "cost": 0.943377,
+    "turns": 22,
+    "patch_bytes": 793,
+    "secs": 170
+  },
+  {
+    "instance_id": "pytest-dev__pytest-8399",
+    "arm": "naked",
+    "tokens": 75725,
+    "cost": 0.17939149999999998,
+    "turns": 3,
+    "patch_bytes": 549,
+    "secs": 20
+  },
+  {
+    "instance_id": "pytest-dev__pytest-8399",
+    "arm": "gated",
+    "tokens": 1001565,
+    "cost": 1.2340779999999996,
+    "turns": 27,
+    "patch_bytes": 549,
+    "secs": 252
+  },
+  {
+    "instance_id": "psf__requests-1766",
+    "arm": "naked",
+    "tokens": 97993,
+    "cost": 0.182047,
+    "turns": 4,
+    "patch_bytes": 453,
+    "secs": 15
+  },
+  {
+    "instance_id": "psf__requests-1766",
+    "arm": "gated",
+    "tokens": 339986,
+    "cost": 0.5053654999999999,
+    "turns": 12,
+    "patch_bytes": 453,
+    "secs": 87
+  },
+  {
+    "instance_id": "psf__requests-1724",
+    "arm": "naked",
+    "tokens": 110299,
+    "cost": 0.22846750000000002,
+    "turns": 6,
+    "patch_bytes": 532,
+    "secs": 24
+  },
+  {
+    "instance_id": "psf__requests-1724",
+    "arm": "gated",
+    "tokens": 598567,
+    "cost": 0.7604495,
+    "turns": 20,
+    "patch_bytes": 532,
+    "secs": 116
+  },
+  {
+    "instance_id": "psf__requests-2317",
+    "arm": "naked",
+    "tokens": 258218,
+    "cost": 0.3161245,
+    "turns": 10,
+    "patch_bytes": 398,
+    "secs": 43
+  },
+  {
+    "instance_id": "psf__requests-2317",
+    "arm": "gated",
+    "tokens": 1144475,
+    "cost": 1.1503055,
+    "turns": 34,
+    "patch_bytes": 833,
+    "secs": 204
+  },
+  {
+    "instance_id": "pytest-dev__pytest-10051",
+    "arm": "naked",
+    "tokens": 102680,
+    "cost": 0.20858000000000002,
+    "turns": 5,
+    "patch_bytes": 439,
+    "secs": 27
+  },
+  {
+    "instance_id": "pytest-dev__pytest-10051",
+    "arm": "gated",
+    "tokens": 923438,
+    "cost": 1.1999329999999997,
+    "turns": 26,
+    "patch_bytes": 1143,
+    "secs": 232
+  },
+  {
+    "instance_id": "pytest-dev__pytest-10081",
+    "arm": "naked",
+    "tokens": 411941,
+    "cost": 0.5136499999999999,
+    "turns": 14,
+    "patch_bytes": 846,
+    "secs": 102
+  },
+  {
+    "instance_id": "pytest-dev__pytest-10081",
+    "arm": "gated",
+    "tokens": 923985,
+    "cost": 1.015716,
+    "turns": 26,
+    "patch_bytes": 806,
+    "secs": 196
+  },
+  {
+    "instance_id": "pytest-dev__pytest-10356",
+    "arm": "naked",
+    "tokens": 455168,
+    "cost": 0.562996,
+    "turns": 15,
+    "patch_bytes": 2135,
+    "secs": 116
+  },
+  {
+    "instance_id": "pytest-dev__pytest-10356",
+    "arm": "gated",
+    "tokens": 1722650,
+    "cost": 1.6678015,
+    "turns": 42,
+    "patch_bytes": 2485,
+    "secs": 277
+  },
+  {
+    "instance_id": "pytest-dev__pytest-5262",
+    "arm": "naked",
+    "tokens": 190313,
+    "cost": 0.284563,
+    "turns": 7,
+    "patch_bytes": 482,
+    "secs": 42
+  },
+  {
+    "instance_id": "pytest-dev__pytest-5262",
+    "arm": "gated",
+    "tokens": 1070501,
+    "cost": 1.1307845,
+    "turns": 29,
+    "patch_bytes": 482,
+    "secs": 311
+  },
+  {
+    "instance_id": "pytest-dev__pytest-5631",
+    "arm": "naked",
+    "tokens": 103032,
+    "cost": 0.213391,
+    "turns": 4,
+    "patch_bytes": 611,
+    "secs": 32
+  },
+  {
+    "instance_id": "pytest-dev__pytest-5631",
+    "arm": "gated",
+    "tokens": 800717,
+    "cost": 0.9352275000000001,
+    "turns": 24,
+    "patch_bytes": 642,
+    "secs": 160
+  },
+  {
+    "instance_id": "pytest-dev__pytest-5787",
+    "arm": "naked",
+    "tokens": 1599698,
+    "cost": 1.7680954999999998,
+    "turns": 35,
+    "patch_bytes": 7987,
+    "secs": 291
+  },
+  {
+    "instance_id": "pytest-dev__pytest-5787",
+    "arm": "gated",
+    "tokens": 1705591,
+    "cost": 1.9334784999999997,
+    "turns": 35,
+    "patch_bytes": 8248,
+    "secs": 373
+  },
+  {
+    "instance_id": "pytest-dev__pytest-5840",
+    "arm": "naked",
+    "tokens": 564388,
+    "cost": 0.856191,
+    "turns": 24,
+    "patch_bytes": 3405,
+    "secs": 190
+  },
+  {
+    "instance_id": "pytest-dev__pytest-5840",
+    "arm": "gated",
+    "tokens": 1651432,
+    "cost": 1.9116455000000003,
+    "turns": 40,
+    "patch_bytes": 2556,
+    "secs": 382
+  },
+  {
+    "instance_id": "pytest-dev__pytest-6197",
+    "arm": "naked",
+    "tokens": 2406546,
+    "cost": 2.6905805000000003,
+    "turns": 47,
+    "patch_bytes": 1133,
+    "secs": 554
+  },
+  {
+    "instance_id": "pytest-dev__pytest-6197",
+    "arm": "gated",
+    "tokens": 1617033,
+    "cost": 1.862953,
+    "turns": 39,
+    "patch_bytes": 1905,
+    "secs": 328
+  },
+  {
+    "instance_id": "pytest-dev__pytest-6202",
+    "arm": "naked",
+    "tokens": 471277,
+    "cost": 0.50613,
+    "turns": 17,
+    "patch_bytes": 395,
+    "secs": 116
+  },
+  {
+    "instance_id": "pytest-dev__pytest-6202",
+    "arm": "gated",
+    "tokens": 721487,
+    "cost": 0.8391250000000003,
+    "turns": 22,
+    "patch_bytes": 436,
+    "secs": 288
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7205",
+    "arm": "naked",
+    "tokens": 255520,
+    "cost": 0.34830550000000005,
+    "turns": 9,
+    "patch_bytes": 565,
+    "secs": 50
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7205",
+    "arm": "gated",
+    "tokens": 720253,
+    "cost": 0.85898,
+    "turns": 22,
+    "patch_bytes": 594,
+    "secs": 149
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7236",
+    "arm": "naked",
+    "tokens": 415415,
+    "cost": 0.6139550000000001,
+    "turns": 12,
+    "patch_bytes": 1404,
+    "secs": 124
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7236",
+    "arm": "gated",
+    "tokens": 944209,
+    "cost": 1.1603355,
+    "turns": 23,
+    "patch_bytes": 1404,
+    "secs": 212
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7324",
+    "arm": "naked",
+    "tokens": 220612,
+    "cost": 0.33250499999999994,
+    "turns": 8,
+    "patch_bytes": 1159,
+    "secs": 45
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7324",
+    "arm": "gated",
+    "tokens": 838790,
+    "cost": 1.0362844999999998,
+    "turns": 22,
+    "patch_bytes": 971,
+    "secs": 193
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7490",
+    "arm": "naked",
+    "tokens": 943609,
+    "cost": 1.2918909999999997,
+    "turns": 23,
+    "patch_bytes": 1070,
+    "secs": 280
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7490",
+    "arm": "gated",
+    "tokens": 1917799,
+    "cost": 2.3671695,
+    "turns": 33,
+    "patch_bytes": 1255,
+    "secs": 501
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7521",
+    "arm": "naked",
+    "tokens": 583325,
+    "cost": 0.6208175,
+    "turns": 19,
+    "patch_bytes": 460,
+    "secs": 160
+  },
+  {
+    "instance_id": "pytest-dev__pytest-7521",
+    "arm": "gated",
+    "tokens": 774675,
+    "cost": 0.8566765000000001,
+    "turns": 24,
+    "patch_bytes": 687,
+    "secs": 189
+  }
+]
