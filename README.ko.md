@@ -111,6 +111,6 @@ decision_events = { hypothesis_before, decision, rejected_options, confidence_be
 
 ## 구성
 
-`gates/` 엔진+judge · `adapters/` 설치(CC/Codex) · `prompts/`·`rubric/` 절차 · `bench/`·`tests/` (23개)
+`gates/` 엔진+judge · `adapters/` 설치(CC/Codex) · `prompts/`·`rubric/` 절차 · `bench/`·`tests/` (35개)
 
-로컬 전용 · 프로세스·감사·안전 · MIT
+검증: Claude Code 훅 35 체크 + Codex 라이브 1회(보호파일 무손상, 게이트 통과분만 적용, 검증 미완 시 재시도 후 거부) · 로컬 전용 · MIT

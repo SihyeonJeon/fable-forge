@@ -88,9 +88,11 @@ Measured in this repo, reproducible (`bash bench/run_quality.sh`, `bash tests/ru
 | Decision record per change | none | **enforced** |
 | Unspeced or forbidden-path edits reaching the repo | possible | **blocked** |
 | Token overhead, in-session (Claude Code) | 1× | ~+spec; LIGHT under 2× |
-| Adversarial gate tests (grade-downgrade, hook bypass, malformed spec) | n/a | **23/23 pass** |
+| Adversarial / edge gate tests (downgrade, bypass, malformed, no-brick) | n/a | **35/35 pass** |
 
-Details: [bench/BENCHMARK.md](bench/BENCHMARK.md) · [TOKEN_BUDGET.md](TOKEN_BUDGET.md).
+Validated live: a Codex run left a protected file untouched and applied only the
+gate-passing diff; if verification is incomplete it retries, then rejects rather than
+apply. Details: [bench/BENCHMARK.md](bench/BENCHMARK.md) · [TOKEN_BUDGET.md](TOKEN_BUDGET.md).
 
 ## License
 
