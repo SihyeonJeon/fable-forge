@@ -43,6 +43,11 @@ def run_gate(*args: str) -> tuple[int, str]:
         return 0, f"forge gate skipped: {exc}"
 
 
+def is_off(root) -> bool:
+    """Gate disabled for this project (toggled in-session with 'forge off')."""
+    return (Path(root) / ".forge" / "OFF").exists()
+
+
 def tool_name(payload: dict) -> str:
     return payload.get("tool_name", "") or ""
 

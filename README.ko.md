@@ -44,7 +44,13 @@ Fable 세션 (실작업, 7 프로젝트)
 ```sh
 git clone https://github.com/SihyeonJeon/why-was-fable-banned && cd why-was-fable-banned && sh install.sh
 ```
-필요: `python3` · 끄기: `touch .forge/OFF` / `FORGE_BYPASS=1` · 제거: `sh install.sh --uninstall`
+필요: `python3` · 제거: `sh install.sh --uninstall`
+
+**스코프**
+- `sh install.sh` = 이 머신의 **모든 Claude Code 프로젝트** (서브에이전트·오케스트레이션 워커 포함)
+- `sh install.sh --here` = **이 repo만** (Claude Code 프로젝트 설정)
+- `forge off` / `forge on` / `forge status` = 세션 내 토글, hook이 처리(모델에 안 감). **프로젝트 단위** 플래그(`.forge/OFF`)라 세션 넘어 유지
+- **Claude Code 도는 어디서나** (터미널·VS Code·JetBrains 확장·데스크톱, 같은 hook 공유) + Codex. Cursor 자체 에이전트 등 비-Claude/Codex엔 미적용
 
 ---
 

@@ -30,8 +30,14 @@ git clone https://github.com/SihyeonJeon/why-was-fable-banned
 cd why-was-fable-banned && sh install.sh
 ```
 
-`python3` only, stdlib. Disable per project: `touch .forge/OFF`. Bypass once:
-`FORGE_BYPASS=1`. Remove: `sh install.sh --uninstall`.
+`python3` only, stdlib. Remove: `sh install.sh --uninstall`.
+
+## Scope
+
+- `sh install.sh` — **machine-wide**: every Claude Code project on this computer (and every subagent / orchestrated worker) inherits the gate
+- `sh install.sh --here` — **this repo only** (Claude Code project-level `.claude/settings.json`)
+- `forge off` / `forge on` / `forge status` — toggle in-session; handled by the hook, never sent to the model. It flips a per-**project** flag (`.forge/OFF`), so it persists across sessions in that repo until you flip it back
+- **Works wherever Claude Code runs** — terminal, the VS Code and JetBrains extensions, desktop (they share the same hooks) — plus Codex. It does not apply to non-Claude-Code/Codex agents (e.g. Cursor's own agent)
 
 ## How it works
 

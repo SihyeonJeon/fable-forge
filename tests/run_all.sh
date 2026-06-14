@@ -123,5 +123,22 @@ out("pure .forge authoring allowed", pre({"tool_name": "apply_patch", "tool_inpu
 PY
 while IFS='|' read -r st name; do chk "$st" "PASS" "$name"; done < /tmp/adv.txt
 
+echo "== 8. in-session toggle (forge off / on) =="
+python3 - "$HOOKS" "$GATE" >/tmp/tog.txt 2>&1 <<'PY'
+import json, os, subprocess, sys, tempfile
+HOOKS, GATE = sys.argv[1], sys.argv[2]
+D = tempfile.mkdtemp(); env = dict(os.environ, CLAUDE_PROJECT_DIR=D); env.pop("FORGE_BYPASS", None)
+subprocess.run([sys.executable, GATE, "scaffold", "--root", D, "--goal", "add x"], capture_output=True)
+def ups(p): return subprocess.run([sys.executable, f"{HOOKS}/user_prompt_submit.py"], input=json.dumps({"prompt": p, "cwd": D}), capture_output=True, text=True, env=env).stdout
+def edit_rc(): return subprocess.run([sys.executable, f"{HOOKS}/pre_tool_use.py"], input=json.dumps({"tool_name": "Edit", "tool_input": {"file_path": D + "/a.py"}, "cwd": D}), capture_output=True, text=True, env=env).returncode
+def out(n, c): print(f"{'PASS' if c else 'FAIL'}|{n}")
+out("edit blocked before toggle", edit_rc() == 2)
+o = ups("forge off"); out("forge off blocks prompt + creates OFF", '"decision": "block"' in o and os.path.exists(D + "/.forge/OFF"))
+out("edit allowed while off", edit_rc() == 0)
+ups("forge on"); out("forge on removes OFF", not os.path.exists(D + "/.forge/OFF"))
+out("edit blocked again after on", edit_rc() == 2)
+PY
+while IFS='|' read -r st name; do chk "$st" "PASS" "$name"; done < /tmp/tog.txt
+
 echo; echo "==== TOTAL: $PASS pass, $FAIL fail ===="
 [ "$FAIL" = "0" ] || exit 1

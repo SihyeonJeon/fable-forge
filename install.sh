@@ -2,7 +2,8 @@
 # fable-forge installer — wires the gate into your agent CLI(s) so every session
 # (and every orchestrated worker) runs on top of it. Idempotent. Needs python3.
 #
-#   sh install.sh                 # auto-detect Claude Code and/or Codex
+#   sh install.sh                 # machine-wide: every Claude Code project (auto-detect Codex)
+#   sh install.sh --here          # this repo only (Claude Code project-level settings)
 #   sh install.sh claude-code     # Claude Code only
 #   sh install.sh codex           # Codex only
 #   sh install.sh all             # both
@@ -13,9 +14,18 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 have(){ command -v "$1" >/dev/null 2>&1; }
 chmod +x "$HERE"/adapters/*/install.sh "$HERE"/adapters/codex/*.sh "$HERE"/gates/*.py 2>/dev/null || true
 
-UNINSTALL=""
-[ "${1:-}" = "--uninstall" ] && { UNINSTALL="--uninstall"; shift; }
+UNINSTALL=""; SCOPE="machine"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --uninstall) UNINSTALL="--uninstall"; shift ;;
+    --here|--project) SCOPE="project"; shift ;;
+    *) break ;;
+  esac
+done
 TARGET="${1:-auto}"
+
+# --here: gate ONLY this repo via Claude Code project-level settings (lower commitment)
+if [ "$SCOPE" = "project" ]; then export CLAUDE_SETTINGS="$PWD/.claude/settings.json"; fi
 
 cc(){ bash "$HERE/adapters/claude-code/install.sh" $UNINSTALL; }
 cx(){ bash "$HERE/adapters/codex/install.sh" $UNINSTALL; }
@@ -40,8 +50,9 @@ esac
 
 if [ -z "$UNINSTALL" ]; then
   echo
-  echo "fable-forge installed. Work-shaped prompts now auto-start a gated task;"
-  echo "implementation edits are blocked until .forge/spec.json passes the gate."
-  echo "  disable per project:  touch .forge/OFF        bypass once:  FORGE_BYPASS=1"
-  echo "  Codex headless:        use 'forge-codex-accept \"<goal>\" --repo <dir>'  (see adapters/codex/ENFORCEMENT.md)"
+  echo "fable-forge installed (scope: $SCOPE). Work-shaped prompts auto-start a gated task;"
+  echo "edits are blocked until .forge/spec.json passes the gate."
+  if [ "$SCOPE" = "project" ]; then echo "  active only in: $PWD"; else echo "  active in every Claude Code project on this machine"; fi
+  echo "  toggle in-session:  forge off  /  forge on  /  forge status"
+  echo "  Codex headless:      forge-codex-accept \"<goal>\" --repo <dir>   (adapters/codex/ENFORCEMENT.md)"
 fi
