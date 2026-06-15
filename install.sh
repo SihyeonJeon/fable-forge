@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fable-forge installer — wires the gate into your agent CLI(s) so every session
+# wfb installer — wires the gate into your agent CLI(s) so every session
 # (and every orchestrated worker) runs on top of it. Idempotent. Needs python3.
 #
 #   sh install.sh                 # machine-wide: every Claude Code project (auto-detect Codex)
@@ -51,7 +51,7 @@ esac
 if [ -z "$UNINSTALL" ]; then
   echo
   echo "wfb installed (scope: $SCOPE). Work-shaped prompts auto-start a gated task;"
-  echo "edits are blocked until .forge/spec.json passes the gate."
+  echo "edits are blocked until .wfb/spec.json passes the gate."
   if [ "$SCOPE" = "project" ]; then echo "  active only in: $PWD"; else echo "  active in every Claude Code project on this machine"; fi
   echo "  toggle in-session:  wfb off  /  wfb on  /  wfb status"
   echo "  Codex headless:      wfb-codex-accept \"<goal>\" --repo <dir>   (adapters/codex/ENFORCEMENT.md)"

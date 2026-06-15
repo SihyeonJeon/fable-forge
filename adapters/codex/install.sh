@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# fable-forge — Codex installer.
+# wfb — Codex installer.
 # PRIMARY (steady-state, in-session): native Codex hooks merged into
 # ~/.codex/hooks.json — PreToolUse blocks apply_patch until the spec gate passes,
 # inside ONE codex session (no multi-pass reload). Token cost is measured in
 # TOKEN_BUDGET.md (the gate adds turns; not a free single additive term).
-# FALLBACK: the forge-codex wrapper (multi-pass; ~10x, use only where a runtime
+# FALLBACK: the wfb-codex wrapper (multi-pass; ~10x, use only where a runtime
 # without hook trust is needed).
 # Also places the procedure mandate in ~/.codex/AGENTS.md (inherited every session).
 # Idempotent.   sh install.sh [--uninstall]
@@ -15,13 +15,13 @@ HOOK_DIR="$(cd "$HERE/../hooks" && pwd)"            # shared, runtime-agnostic h
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 HOOKS_JSON="$CODEX_HOME/hooks.json"
 GLOBAL_AGENTS="$CODEX_HOME/AGENTS.md"
-BIN_DIR="${FORGE_BIN_DIR:-$HOME/.local/bin}"
-MARK_BEGIN="<!-- fable-forge:begin -->"
-MARK_END="<!-- fable-forge:end -->"
+BIN_DIR="${WFB_BIN_DIR:-$HOME/.local/bin}"
+MARK_BEGIN="<!-- wfb:begin -->"
+MARK_END="<!-- wfb:end -->"
 MODE="install"
 [ "${1:-}" = "--uninstall" ] && MODE="uninstall"
 
-chmod +x "$HERE/forge-codex.sh" 2>/dev/null || true
+chmod +x "$HERE/wfb-codex.sh" 2>/dev/null || true
 mkdir -p "$CODEX_HOME"
 [ -f "$HOOKS_JSON" ] || echo '{}' > "$HOOKS_JSON"
 
@@ -66,14 +66,14 @@ if [ "$MODE" = "install" ]; then
 fi
 
 # --- 3) headless commands on PATH ---
-# forge-codex-accept = PRIMARY headless path (worktree-accept; what README documents);
-# forge-codex = older multi-pass wrapper fallback for non-git contexts.
+# wfb-codex-accept = PRIMARY headless path (worktree-accept; what README documents);
+# wfb-codex = older multi-pass wrapper fallback for non-git contexts.
 if [ "$MODE" = "install" ]; then
   mkdir -p "$BIN_DIR"
-  ln -sf "$HERE/forge-codex-accept.sh" "$BIN_DIR/wfb-codex-accept"
-  ln -sf "$HERE/forge-codex.sh" "$BIN_DIR/wfb-codex"
+  ln -sf "$HERE/wfb-codex-accept.sh" "$BIN_DIR/wfb-codex-accept"
+  ln -sf "$HERE/wfb-codex.sh" "$BIN_DIR/wfb-codex"
 else
-  rm -f "$BIN_DIR/wfb-codex-accept" "$BIN_DIR/wfb-codex" "$BIN_DIR/forge-codex-accept" "$BIN_DIR/forge-codex"
+  rm -f "$BIN_DIR/wfb-codex-accept" "$BIN_DIR/wfb-codex" "$BIN_DIR/wfb-codex-accept" "$BIN_DIR/wfb-codex"
 fi
 
 if [ "$MODE" = "install" ]; then

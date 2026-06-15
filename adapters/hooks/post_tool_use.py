@@ -12,11 +12,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import read_payload, project_root, run_gate, tool_name, edited_paths, under_forge, EDIT_TOOLS  # noqa: E402
+from common import read_payload, project_root, run_gate, tool_name, edited_paths, under_wfb, EDIT_TOOLS  # noqa: E402
 
 
 def main() -> int:
-    if os.environ.get("FORGE_BYPASS") == "1":
+    if os.environ.get("WFB_BYPASS") == "1":
         return 0
     payload = read_payload()
     if tool_name(payload) not in EDIT_TOOLS:
@@ -24,12 +24,12 @@ def main() -> int:
     root = project_root(payload)
     if run_gate("active", "--root", root)[0] != 0:
         return 0
-    # canonical containment, not substring (so '.forge/../src/a.py' is recorded, and a
-    # symlinked '.forge' alias can't smuggle an edit out of the log)
-    paths = [p for p in edited_paths(payload) if not under_forge(p, root)]
+    # canonical containment, not substring (so '.wfb/../src/a.py' is recorded, and a
+    # symlinked '.wfb' alias can't smuggle an edit out of the log)
+    paths = [p for p in edited_paths(payload) if not under_wfb(p, root)]
     if not paths:
         return 0
-    log = Path(root) / ".forge" / "edits.txt"
+    log = Path(root) / ".wfb" / "edits.txt"
     try:
         existing = set(log.read_text(encoding="utf-8").splitlines()) if log.exists() else set()
         new = [p for p in paths if p not in existing]

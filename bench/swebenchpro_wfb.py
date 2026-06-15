@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""SWE-bench Pro slice: gate OFF (naked) vs ON (forge), same model (opus).
+"""SWE-bench Pro slice: gate OFF (naked) vs ON (wfb), same model (opus).
 Clones the real repo at base_commit, generates a patch per arm with `claude -p`, writes
 a CSV + patches JSON for the ScaleAI SWE-bench Pro harness. Run with the venv python.
 
-  /tmp/swe_venv/bin/python bench/swebenchpro_forge.py --ids <id1,id2>
+  /tmp/swe_venv/bin/python bench/swebenchpro_wfb.py --ids <id1,id2>
 """
 import argparse, json, subprocess, time
 from pathlib import Path
 import pandas as pd
 from datasets import load_dataset
 
-FORGE = Path("/Users/jeonsihyeon/fable-forge")
+FORGE = Path("/Users/jeonsihyeon/wfb")
 HOOKS = FORGE / "adapters/hooks"
-GATE = FORGE / "gates/forge_gate.py"
+GATE = FORGE / "gates/wfb_gate.py"
 WORK = Path("/tmp/swepro"); WORK.mkdir(exist_ok=True)
 
 SETTINGS = {"hooks": {
@@ -57,8 +57,8 @@ def make_patch(repo, problem, dest, base, gated, model="opus"):
         cost = j.get("total_cost_usd", 0); turns = j.get("num_turns", 0)
     except Exception:
         pass
-    sh(["git", "add", "-A", "--", ".", ":!.forge", ":!.claude"], cwd=dest)
-    patch = sh(["git", "diff", "--cached", "--", ".", ":!.forge", ":!.claude"], cwd=dest).stdout
+    sh(["git", "add", "-A", "--", ".", ":!.wfb", ":!.claude"], cwd=dest)
+    patch = sh(["git", "diff", "--cached", "--", ".", ":!.wfb", ":!.claude"], cwd=dest).stdout
     return patch, tok, cost, turns
 
 
@@ -99,7 +99,7 @@ def main():
             patch, tok, cost, turns = make_patch(repo, e["problem_statement"], d, base, gated=(arm == "gated"), model=a.model)
             dt = time.time() - t0
             print(f"  {arm:6s} turns={turns} tokens={tok} cost=${cost:.3f} {dt:.0f}s patch={len(patch)}B", flush=True)
-            preds[arm][iid] = {"instance_id": iid, "patch": patch, "prefix": f"forge_{arm}"}
+            preds[arm][iid] = {"instance_id": iid, "patch": patch, "prefix": f"wfb_{arm}"}
             meta = [m for m in meta if not (m["instance_id"] == iid and m["arm"] == arm)]
             meta.append({"instance_id": iid, "arm": arm, "tokens": tok, "cost": cost, "turns": turns, "secs": round(dt)})
             sh(["rm", "-rf", str(d)])  # free disk between arms

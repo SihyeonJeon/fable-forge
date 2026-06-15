@@ -57,7 +57,7 @@ git clone https://github.com/SihyeonJeon/why-was-fable-banned && cd why-was-fabl
   | `wfb off here` / `wfb on here` | 이 **세션**만 | 이 대화 |
   | `wfb off all` / `wfb on all` | **머신 전체** | 어디서나 |
 
-  세부 우선(session > project > machine > 기본 on) — 프로젝트는 끄고 어려운 세션 하나만 켤 수 있음. 파일 기반이라 재부팅해도 유지. `wfb status`로 3개 다 확인. 일회성 우회: `FORGE_BYPASS=1`
+  세부 우선(session > project > machine > 기본 on) — 프로젝트는 끄고 어려운 세션 하나만 켤 수 있음. 파일 기반이라 재부팅해도 유지. `wfb status`로 3개 다 확인. 일회성 우회: `WFB_BYPASS=1`
 - **상태 표시줄**: 게이트 켜져 있으면 Claude Code 하단에 `[why-was-fable-banned]` 표시 (기존 statusLine 없을 때만 자동 설치, 있으면 추가법 안내 — 절대 덮어쓰지 않음)
 - **Claude Code 도는 어디서나** (터미널·VS Code·JetBrains 확장·데스크톱, 같은 hook 공유) + Codex. Cursor 자체 에이전트 등 비-Claude/Codex엔 미적용
 
@@ -92,8 +92,8 @@ decision_events = { hypothesis_before, decision, rejected_options, confidence_be
 
 | 형태 | 레이어 | 검사 |
 |---|---|---|
-| 게이트 룰 (deterministic) | `gates/forge_gate.py` | **형식** · 필드·경로실존·forbidden·fail-closed |
-| 룹릭 (LLM judge, cross-family) | `gates/forge_judge.py` | **의미** · 0–2 채점, 게이밍 탐지 |
+| 게이트 룰 (deterministic) | `gates/wfb_gate.py` | **형식** · 필드·경로실존·forbidden·fail-closed |
+| 룹릭 (LLM judge, cross-family) | `gates/wfb_judge.py` | **의미** · 0–2 채점, 게이밍 탐지 |
 | 절차 프롬프트 | `prompts/` · `rubric/` | **정확성** · 숨은 채점기 벤치 |
 
 등급 자동화(LIGHT/STANDARD/HEAVY)로 토큰 절약 · 보안·결제·마이그만 풀 게이트.
@@ -106,7 +106,7 @@ decision_events = { hypothesis_before, decision, rejected_options, confidence_be
 
 | hook | 동작 |
 |---|---|
-| `UserPromptSubmit` | 작업 프롬프트 감지 → `.forge/` task 자동 scaffold + 절차 주입 |
+| `UserPromptSubmit` | 작업 프롬프트 감지 → `.wfb/` task 자동 scaffold + 절차 주입 |
 | `PreToolUse` | 편집 도구(Edit/Write/apply_patch) 가로채 spec 게이트 검사 → 미통과면 **exit 2 차단** |
 | `PostToolUse` | 편집 경로 기록 → `forbidden_paths` 위반 검증 |
 | `Stop` | done 게이트 미충족 시 경고 |
@@ -114,7 +114,7 @@ decision_events = { hypothesis_before, decision, rejected_options, confidence_be
 - **Claude Code** · native 훅이 발화 → **in-session 하드차단** (한 세션 내, 등급별 contract 선주입으로 1회 통과 유도)
 - **Codex** · `wfb-codex-accept "<goal>" --repo <dir>`: 버리는 git worktree서 작업 →
   **게이트 통과분만 실 repo에 apply** (unspeced/forbidden 작업이 repo에 도달 못 함)
-- **모델 무관** · 게이트 엔진은 stdlib `python3`, 어떤 모델에도 동일 강제. 상태는 프로젝트 `.forge/`에 로컬
+- **모델 무관** · 게이트 엔진은 stdlib `python3`, 어떤 모델에도 동일 강제. 상태는 프로젝트 `.wfb/`에 로컬
 
 ---
 

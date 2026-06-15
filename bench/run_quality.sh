@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Quality benchmark: gate/layer ON (forged) vs OFF (naked), SAME tasks, scored by a
+# Quality benchmark: gate/layer ON (wfbd) vs OFF (naked), SAME tasks, scored by a
 # HIDDEN grader (edge cases the model never sees). Measures whether forcing the
 # spec+verify discipline lifts a weaker model's (gpt-5.5) output correctness.
-# ~6 codex runs. set FORGE_EFFORT (default medium).
+# ~6 codex runs. set WFB_EFFORT (default medium).
 set +e
 FORGE="$(cd "$(dirname "$0")/.." && pwd)"
 Q="$FORGE/bench/quality"
 GRADE="python3 $Q/grade.py"
-MODEL="${FORGE_MODEL:-gpt-5.5}"; EFFORT="${FORGE_EFFORT:-medium}"
+MODEL="${WFB_MODEL:-gpt-5.5}"; EFFORT="${WFB_EFFORT:-medium}"
 B="${TMPDIR:-/tmp}/qbench"; rm -rf "$B"; mkdir -p "$B"
 CX=(--json --skip-git-repo-check -s workspace-write -m "$MODEL" -c model_reasoning_effort="$EFFORT")
 
@@ -26,30 +26,30 @@ run_naked(){ # id file seed prompt -> echoes module path
   echo "$D/$file"
 }
 
-run_forged(){ # id file seed prompt -> echoes module path + sets GATE_OUT
-  local id="$1" file="$2" seed="$3" prompt="$4" R="$B/forged_$1"
+run_wfbd(){ # id file seed prompt -> echoes module path + sets GATE_OUT
+  local id="$1" file="$2" seed="$3" prompt="$4" R="$B/wfbd_$1"
   mkdir -p "$R"; ( cd "$R" && git init -q && git config user.email t@t && git config user.name t ) >/dev/null 2>&1
   [ -n "$seed" ] && cp "$seed" "$R/$file"
   printf '# bench\n' > "$R/README.md"
   ( cd "$R" && git add -A && git commit -qm base ) >/dev/null 2>&1
   local err
-  err="$(cd "$R" && FORGE_KEEP=1 FORGE_EFFORT="$EFFORT" FORGE_MODEL="$MODEL" "$FORGE/adapters/codex/forge-codex-accept.sh" "$prompt" --repo "$R" 2>&1 >/tmp/qf_out.$id)"
+  err="$(cd "$R" && WFB_KEEP=1 WFB_EFFORT="$EFFORT" WFB_MODEL="$MODEL" "$FORGE/adapters/codex/wfb-codex-accept.sh" "$prompt" --repo "$R" 2>&1 >/tmp/qf_out.$id)"
   GATE_OUT="$(grep -oE 'ACCEPTED|REJECTED' /tmp/qf_out.$id | head -1)"
   local WT; WT="$(printf '%s\n' "$err" | sed -n 's/.*worktree kept at //p' | head -1)"
   if [ -f "$R/$file" ]; then echo "$R/$file"; else echo "$WT/$file"; fi
 }
 
 echo "=== Quality benchmark (gpt-5.5, effort=$EFFORT) — hidden-grader pass rate ==="
-printf "%-4s %-16s  %-14s  %-14s  %s\n" "task" "symbol" "naked" "forged(gate)" "gate"
+printf "%-4s %-16s  %-14s  %-14s  %s\n" "task" "symbol" "naked" "wfbd(gate)" "gate"
 declare -a SUMMARY
 for row in "${TASKS[@]}"; do
   IFS='|' read -r id file sym seed prompt <<< "$row"
   nf="$(run_naked  "$id" "$file" "$seed" "$prompt")"
-  ff="$(run_forged "$id" "$file" "$seed" "$prompt")"
+  ff="$(run_wfbd "$id" "$file" "$seed" "$prompt")"
   ns="$($GRADE "$nf" "$id" 2>/dev/null)"; [ -z "$ns" ] && ns="0 ?"
   fs="$($GRADE "$ff" "$id" 2>/dev/null)"; [ -z "$fs" ] && fs="0 ?"
   printf "%-4s %-16s  %-14s  %-14s  %s\n" "$id" "$sym" "$ns" "$fs" "${GATE_OUT:-?}"
-  SUMMARY+=("$id naked=$ns forged=$fs gate=${GATE_OUT:-?}")
+  SUMMARY+=("$id naked=$ns wfbd=$fs gate=${GATE_OUT:-?}")
 done
 echo; echo "=== summary ==="; printf '%s\n' "${SUMMARY[@]}"
 echo "(score = hidden edge-case assertions passed / total)"

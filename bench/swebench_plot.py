@@ -11,7 +11,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 SWE = "/tmp/swe"
-OUT = "/Users/jeonsihyeon/fable-forge/assets/swebench_slice.png"
+OUT = "/Users/jeonsihyeon/wfb/assets/swebench_slice.png"
 
 
 def resolved(report_glob):
@@ -32,13 +32,13 @@ def meta_means():
 
 
 def main():
-    nk = resolved("forge_naked.n28_*.json") or (0, 0)
-    gt = resolved("forge_gated.n28_*.json") or (0, 0)
+    nk = resolved("wfb_naked.n28_*.json") or (0, 0)
+    gt = resolved("wfb_gated.n28_*.json") or (0, 0)
     mm = meta_means()
     n = nk[1] or gt[1] or len(json.load(open(os.path.join(SWE, "meta.json")))) // 2
 
     fig, ax = plt.subplots(1, 3, figsize=(13, 4.2))
-    arms = ["gate OFF\n(naked)", "gate ON\n(forge)"]
+    arms = ["gate OFF\n(naked)", "gate ON\n(wfb)"]
     cols = ["#8a8f98", "#d64545"]
 
     # 1) resolved rate
@@ -69,7 +69,7 @@ def main():
 
     delta = gt[0] - nk[0]
     sign = f"+{delta}" if delta > 0 else str(delta)
-    fig.suptitle(f"Forge gate on SWE-bench Verified (N={n}, opus): matches or beats naked "
+    fig.suptitle(f"Wfb gate on SWE-bench Verified (N={n}, opus): matches or beats naked "
                  f"({gt[0]} vs {nk[0]}, {sign}), at higher token cost",
                  fontsize=12, y=1.02)
     fig.tight_layout()

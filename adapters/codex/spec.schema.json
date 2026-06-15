@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "fable-forge spec",
-  "description": "Advisory reference for the STANDARD grade. gates/forge_gate.py is authoritative and grade-aware: LIGHT needs only restated_goal + >=1 runnable acceptance_criteria; STANDARD adds the fields required below; HEAVY additionally requires constraints.architectural, similar_implementations, and >=1 observation at done.",
+  "title": "wfb spec",
+  "description": "Advisory reference for the STANDARD grade. gates/wfb_gate.py is authoritative and grade-aware: LIGHT needs only restated_goal + >=1 runnable acceptance_criteria; STANDARD adds the fields required below; HEAVY additionally requires constraints.architectural, similar_implementations, and >=1 observation at done.",
   "type": "object",
   "required": ["restated_goal", "non_goals", "must_read", "rejected_alternatives", "risks", "constraints", "acceptance_criteria"],
   "properties": {

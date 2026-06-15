@@ -12,7 +12,7 @@ from common import read_payload, project_root, run_gate  # noqa: E402
 
 
 def main() -> int:
-    if os.environ.get("FORGE_BYPASS") == "1":
+    if os.environ.get("WFB_BYPASS") == "1":
         return 0
     payload = read_payload()
     root = project_root(payload)

@@ -1,4 +1,4 @@
-# fable-forge execpolicy template (tier B — best-effort, defense-in-depth)
+# wfb execpolicy template (tier B — best-effort, defense-in-depth)
 #
 # Codex loads execpolicy from ~/.codex/rules/*.rules. Observed grammar:
 #   prefix_rule(pattern=["cmd","arg",...], decision="allow")
@@ -6,7 +6,7 @@
 # CODEX-VERIFY[deny]: confirm whether decision="deny" / "ask" are supported, and
 # what the exec shape of a Codex file edit is (apply_patch heredoc? native tool?).
 # If file edits are NOT shell commands, execpolicy CANNOT gate them — in that case
-# delete this file and rely on the forge-codex wrapper (tier A).
+# delete this file and rely on the wfb-codex wrapper (tier A).
 #
 # IF deny is supported AND edits go through a shell command, the intended rules
 # (deny destructive/edit shells unless the project is already past the spec gate)

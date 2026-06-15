@@ -1,6 +1,6 @@
 __pycache__/
 *.pyc
-.forge/
+.wfb/
 *.bak
 .DS_Store
 /tmp/

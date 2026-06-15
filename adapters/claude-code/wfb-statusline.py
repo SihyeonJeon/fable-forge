@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Claude Code statusLine segment for fable-forge.
+"""Claude Code statusLine segment for wfb.
 
 Prints `[why-was-fable-banned]` when the gate is effectively ON for the current
 session/dir/machine, nothing when off. Claude Code feeds this script a JSON object on
 stdin (session_id, cwd, workspace, model, ...) and renders its stdout at the bottom.
 
 Use it as your whole statusLine, OR call it from an existing statusLine script and
-append its output — it prints only the forge segment, no newline, so it composes.
+append its output — it prints only the wfb segment, no newline, so it composes.
 Stdlib only; fails silent (never breaks your prompt)."""
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def main() -> int:
     except Exception:
         d = {}
     try:
-        import forge_gate as fg
+        import wfb_gate as fg
         on = fg.effective_state(Path(_cwd(d)).resolve(), d.get("session_id")) == "on"
     except Exception:
         return 0  # never break the user's status line

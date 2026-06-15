@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# fable-forge — Claude Code installer.
-# Wires the forge hooks into user-level ~/.claude/settings.json so EVERY project,
+# wfb — Claude Code installer.
+# Wires the wfb hooks into user-level ~/.claude/settings.json so EVERY project,
 # session, and orchestrated subagent inherits the gate. Idempotent. No deps but
 # python3 (already required by the hooks).
 #
 #   sh install.sh            install / refresh
-#   sh install.sh --uninstall   remove forge hooks
+#   sh install.sh --uninstall   remove wfb hooks
 set -eu
 
 HOOK_DIR="$(cd "$(dirname "$0")/../hooks" && pwd)"   # shared, runtime-agnostic hooks
-STATUSLINE="$(cd "$(dirname "$0")" && pwd)/forge-statusline.py"
+STATUSLINE="$(cd "$(dirname "$0")" && pwd)/wfb-statusline.py"
 SETTINGS="${CLAUDE_SETTINGS:-$HOME/.claude/settings.json}"
 MODE="install"
 [ "${1:-}" = "--uninstall" ] && MODE="uninstall"
@@ -24,7 +24,7 @@ hook_dir = os.environ["HOOK_DIR"]
 statusline = os.environ["STATUSLINE"]
 path = os.environ["SETTINGS"]
 mode = os.environ["MODE"]
-TAG = "fable-forge"  # our hook commands contain the hook_dir path -> identifiable
+TAG = "wfb"  # our hook commands contain the hook_dir path -> identifiable
 
 with open(path, encoding="utf-8") as f:
     try:
@@ -100,7 +100,7 @@ if [ "$MODE" = "install" ]; then
   echo "             wfb off            (this dir)        wfb on / wfb status"
   echo "             wfb off here       (this chat only)  wfb on here"
   echo "             wfb off all        (whole machine)   wfb on all"
-  echo "             one-off env bypass:  FORGE_BYPASS=1"
+  echo "             one-off env bypass:  WFB_BYPASS=1"
 else
   echo "wfb: removed."
 fi

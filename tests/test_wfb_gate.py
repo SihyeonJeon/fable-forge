@@ -1,5 +1,5 @@
-"""Regression tests for the forge gate engine. Run: python3 -m unittest -q
-(from ~/fable-forge) — stdlib only, no network, no fable-pack dependency."""
+"""Regression tests for the wfb gate engine. Run: python3 -m unittest -q
+(from ~/wfb) — stdlib only, no network, no fable-pack dependency."""
 import json
 import os
 import sys
@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "gates"))
-import forge_gate as fg  # noqa: E402
+import wfb_gate as fg  # noqa: E402
 
 
 def spec(**over):
@@ -146,15 +146,15 @@ class GateDone(unittest.TestCase):
         self.assertTrue(any("deferred with no handoff" in x for x in fg.gate_done(s, self.d)))
 
     def test_forbidden_path_edit_blocks_done(self):
-        (self.d / ".forge").mkdir(exist_ok=True)
-        (self.d / ".forge" / "edits.txt").write_text("config/policy.py\nsrc/main.py\n")
+        (self.d / ".wfb").mkdir(exist_ok=True)
+        (self.d / ".wfb" / "edits.txt").write_text("config/policy.py\nsrc/main.py\n")
         s = spec(forbidden_paths=["config/*"])
         s["acceptance_criteria"][0]["evidence"] = "ran OK"
         self.assertTrue(any("forbidden_paths" in x for x in fg.gate_done(s, self.d)))
 
     def test_no_forbidden_edit_passes(self):
-        (self.d / ".forge").mkdir(exist_ok=True)
-        (self.d / ".forge" / "edits.txt").write_text("src/main.py\n")
+        (self.d / ".wfb").mkdir(exist_ok=True)
+        (self.d / ".wfb" / "edits.txt").write_text("src/main.py\n")
         s = spec(forbidden_paths=["config/*"])
         s["acceptance_criteria"][0]["evidence"] = "ran OK"
         self.assertEqual(fg.gate_done(s, self.d), [])
@@ -179,12 +179,12 @@ class Adversarial(unittest.TestCase):
         fg.cmd_scaffold(type("A", (), {"root": str(self.d), "goal": goal, "grade": ""})())
 
     def _load(self):
-        return json.loads((self.d / ".forge" / "spec.json").read_text())
+        return json.loads((self.d / ".wfb" / "spec.json").read_text())
 
     def test_grade_lock_blocks_silent_downgrade(self):
-        # HEAVY task auto-graded + locked in .forge/GRADE
+        # HEAVY task auto-graded + locked in .wfb/GRADE
         self._scaffold("secure auth token migration for payments")
-        self.assertEqual((self.d / ".forge" / "GRADE").read_text().strip(), "HEAVY")
+        self.assertEqual((self.d / ".wfb" / "GRADE").read_text().strip(), "HEAVY")
         # attacker rewrites spec.json claiming LIGHT + minimal fields
         s = self._load()
         s["grade"] = "LIGHT"
@@ -195,14 +195,14 @@ class Adversarial(unittest.TestCase):
         self.assertGreaterEqual(len(e), 4, e)
 
     def test_nondict_spec_blocked(self):
-        (self.d / ".forge").mkdir(exist_ok=True)
-        (self.d / ".forge" / "spec.json").write_text("[1,2,3]")
+        (self.d / ".wfb").mkdir(exist_ok=True)
+        (self.d / ".wfb" / "spec.json").write_text("[1,2,3]")
         rc = fg.cmd_validate(type("A", (), {"root": str(self.d), "gate": "spec"})())
         self.assertEqual(rc, 1)
 
     def test_garbage_json_blocked(self):
-        (self.d / ".forge").mkdir(exist_ok=True)
-        (self.d / ".forge" / "spec.json").write_text("{ not json at all ")
+        (self.d / ".wfb").mkdir(exist_ok=True)
+        (self.d / ".wfb" / "spec.json").write_text("{ not json at all ")
         rc = fg.cmd_validate(type("A", (), {"root": str(self.d), "gate": "spec"})())
         self.assertEqual(rc, 1)
 
@@ -290,8 +290,8 @@ class Classify(unittest.TestCase):
 
     def test_heavy_path_segment_precision(self):
         def grade(rel):
-            d = Path(tempfile.mkdtemp()); (d / ".forge").mkdir(); (d / ".forge" / "GRADE").write_text("LIGHT")
-            (d / ".forge" / "edits.txt").write_text(f"{d}/{rel}\n", encoding="utf-8")
+            d = Path(tempfile.mkdtemp()); (d / ".wfb").mkdir(); (d / ".wfb" / "GRADE").write_text("LIGHT")
+            (d / ".wfb" / "edits.txt").write_text(f"{d}/{rel}\n", encoding="utf-8")
             return fg._effective_grade({}, d)
         # compound dir names / lookalike files are NOT heavy
         self.assertEqual(grade("payment-app/utils.py"), "LIGHT")
@@ -302,19 +302,19 @@ class Classify(unittest.TestCase):
 
     def test_effective_grade_escalates_on_multifile(self):
         d = Path(tempfile.mkdtemp())
-        (d / ".forge").mkdir()
-        (d / ".forge" / "GRADE").write_text("LIGHT", encoding="utf-8")
+        (d / ".wfb").mkdir()
+        (d / ".wfb" / "GRADE").write_text("LIGHT", encoding="utf-8")
         self.assertEqual(fg._effective_grade({}, d), "LIGHT")  # no edits yet
-        (d / ".forge" / "edits.txt").write_text("a.py\n", encoding="utf-8")
+        (d / ".wfb" / "edits.txt").write_text("a.py\n", encoding="utf-8")
         self.assertEqual(fg._effective_grade({}, d), "LIGHT")  # one file stays LIGHT
-        (d / ".forge" / "edits.txt").write_text("a.py\nb.py\n", encoding="utf-8")
+        (d / ".wfb" / "edits.txt").write_text("a.py\nb.py\n", encoding="utf-8")
         self.assertEqual(fg._effective_grade({}, d), "STANDARD")  # >=2 files escalates
 
     def test_effective_grade_never_downgrades_heavy(self):
         d = Path(tempfile.mkdtemp())
-        (d / ".forge").mkdir()
-        (d / ".forge" / "GRADE").write_text("HEAVY", encoding="utf-8")
-        (d / ".forge" / "edits.txt").write_text("a.py\nb.py\n", encoding="utf-8")
+        (d / ".wfb").mkdir()
+        (d / ".wfb" / "GRADE").write_text("HEAVY", encoding="utf-8")
+        (d / ".wfb" / "edits.txt").write_text("a.py\nb.py\n", encoding="utf-8")
         self.assertEqual(fg._effective_grade({}, d), "HEAVY")  # escalation is up-only
 
 
@@ -374,64 +374,64 @@ class DynamicGrade(unittest.TestCase):
     def test_fresh_scaffold_overwrites_stale_grade(self):
         d = Path(tempfile.mkdtemp())
         fg.main(["scaffold", "--root", str(d), "--goal", "fix a typo"])
-        self.assertEqual((d / ".forge" / "GRADE").read_text().strip(), "LIGHT")
-        (d / ".forge" / "ACTIVE").unlink()  # simulate a closed task leaving GRADE behind
+        self.assertEqual((d / ".wfb" / "GRADE").read_text().strip(), "LIGHT")
+        (d / ".wfb" / "ACTIVE").unlink()  # simulate a closed task leaving GRADE behind
         fg.main(["scaffold", "--root", str(d), "--goal", "add auth token check"])
-        self.assertEqual((d / ".forge" / "GRADE").read_text().strip(), "HEAVY")  # not stale LIGHT
+        self.assertEqual((d / ".wfb" / "GRADE").read_text().strip(), "HEAVY")  # not stale LIGHT
 
     def test_close_clears_task_state(self):
         d = Path(tempfile.mkdtemp())
         fg.main(["scaffold", "--root", str(d), "--goal", "fix typo"])
-        (d / ".forge" / "edits.txt").write_text("a.py\n", encoding="utf-8")
-        s = json.load(open(d / ".forge" / "spec.json"))
+        (d / ".wfb" / "edits.txt").write_text("a.py\n", encoding="utf-8")
+        s = json.load(open(d / ".wfb" / "spec.json"))
         s["restated_goal"] = "fix the typo, scoped"; s["acceptance_criteria"] = [
             {"criterion": "c", "verify": {"type": "command", "value": "true"}, "evidence": "ran ok"}]
-        json.dump(s, open(d / ".forge" / "spec.json", "w"))
+        json.dump(s, open(d / ".wfb" / "spec.json", "w"))
         fg.main(["close", "--root", str(d)])
-        self.assertFalse((d / ".forge" / "GRADE").exists())
-        self.assertFalse((d / ".forge" / "edits.txt").exists())
-        self.assertFalse((d / ".forge" / "ACTIVE").exists())
+        self.assertFalse((d / ".wfb" / "GRADE").exists())
+        self.assertFalse((d / ".wfb" / "edits.txt").exists())
+        self.assertFalse((d / ".wfb" / "ACTIVE").exists())
 
     def test_heavy_path_escalates_to_heavy(self):
-        d = Path(tempfile.mkdtemp()); (d / ".forge").mkdir()
-        (d / ".forge" / "GRADE").write_text("LIGHT")
-        (d / ".forge" / "edits.txt").write_text("db/migrations/0003_add.py\n", encoding="utf-8")
+        d = Path(tempfile.mkdtemp()); (d / ".wfb").mkdir()
+        (d / ".wfb" / "GRADE").write_text("LIGHT")
+        (d / ".wfb" / "edits.txt").write_text("db/migrations/0003_add.py\n", encoding="utf-8")
         self.assertEqual(fg._effective_grade({}, d), "HEAVY")  # touching a migration => HEAVY
         # a pending edit to an auth file also escalates before it lands
-        d2 = Path(tempfile.mkdtemp()); (d2 / ".forge").mkdir(); (d2 / ".forge" / "GRADE").write_text("LIGHT")
+        d2 = Path(tempfile.mkdtemp()); (d2 / ".wfb").mkdir(); (d2 / ".wfb" / "GRADE").write_text("LIGHT")
         self.assertEqual(fg._effective_grade({}, d2, pending=[str(d2 / "app/auth/login.py")]), "HEAVY")
 
     def test_pending_escalates_before_edit_lands(self):
         d = Path(tempfile.mkdtemp())
-        (d / ".forge").mkdir(); (d / ".forge" / "GRADE").write_text("LIGHT")
-        (d / ".forge" / "edits.txt").write_text("/x/a.py\n", encoding="utf-8")  # 1 file so far
+        (d / ".wfb").mkdir(); (d / ".wfb" / "GRADE").write_text("LIGHT")
+        (d / ".wfb" / "edits.txt").write_text("/x/a.py\n", encoding="utf-8")  # 1 file so far
         self.assertEqual(fg._effective_grade({}, d), "LIGHT")
         self.assertEqual(fg._effective_grade({}, d, pending=[str(d / "b.py")]), "STANDARD")
 
     def test_canonical_path_dedup(self):
-        d = Path(tempfile.mkdtemp()); (d / ".forge").mkdir()
-        (d / ".forge" / "edits.txt").write_text(f"a.py\n./a.py\n{d}/a.py\n", encoding="utf-8")
+        d = Path(tempfile.mkdtemp()); (d / ".wfb").mkdir()
+        (d / ".wfb" / "edits.txt").write_text(f"a.py\n./a.py\n{d}/a.py\n", encoding="utf-8")
         self.assertEqual(fg._edited_file_count(d), 1)  # same file, three spellings
 
-    def test_absolute_forge_path_excluded(self):
-        d = Path(tempfile.mkdtemp()); (d / ".forge").mkdir()
-        (d / ".forge" / "edits.txt").write_text(f"{d}/.forge/spec.json\nreal.py\n", encoding="utf-8")
-        self.assertEqual(fg._edited_file_count(d), 1)  # only real.py, .forge excluded
+    def test_absolute_wfb_path_excluded(self):
+        d = Path(tempfile.mkdtemp()); (d / ".wfb").mkdir()
+        (d / ".wfb" / "edits.txt").write_text(f"{d}/.wfb/spec.json\nreal.py\n", encoding="utf-8")
+        self.assertEqual(fg._edited_file_count(d), 1)  # only real.py, .wfb excluded
 
     def test_active_without_grade_fails_closed_heavy(self):
-        d = Path(tempfile.mkdtemp()); (d / ".forge").mkdir()
-        (d / ".forge" / "ACTIVE").write_text("x")  # active task but GRADE lock missing/tampered
+        d = Path(tempfile.mkdtemp()); (d / ".wfb").mkdir()
+        (d / ".wfb" / "ACTIVE").write_text("x")  # active task but GRADE lock missing/tampered
         self.assertEqual(fg._effective_grade({}, d), "HEAVY")  # strictest floor, never a downgrade
 
     def test_midtask_lost_grade_rescaffold_forces_heavy(self):
         d = Path(tempfile.mkdtemp())
         fg.main(["scaffold", "--root", str(d), "--goal", "fix bug"])  # LIGHT, ACTIVE set
-        (d / ".forge" / "GRADE").unlink()  # lock lost mid-task
+        (d / ".wfb" / "GRADE").unlink()  # lock lost mid-task
         fg.main(["scaffold", "--root", str(d), "--goal", "fix bug"])  # re-scaffold (still ACTIVE)
-        self.assertEqual((d / ".forge" / "GRADE").read_text().strip(), "HEAVY")
+        self.assertEqual((d / ".wfb" / "GRADE").read_text().strip(), "HEAVY")
 
     def test_spec_cannot_weaken_forbidden_after_approval(self):
-        d = Path(tempfile.mkdtemp()); (d / ".forge").mkdir()
+        d = Path(tempfile.mkdtemp()); (d / ".wfb").mkdir()
         approved = {"forbidden_paths": ["config/*"],
                     "acceptance_criteria": [{"criterion": "c", "verify": {"type": "command", "value": "true"}}]}
         fg._write_spec_lock(approved, d)  # snapshot at spec-gate pass
@@ -448,14 +448,14 @@ class OnOffState(unittest.TestCase):
     def setUp(self):
         self.d = Path(tempfile.mkdtemp())
         self.home = tempfile.mkdtemp()
-        self._old = os.environ.get("FORGE_HOME")
-        os.environ["FORGE_HOME"] = self.home  # isolate machine scope from the real ~/.forge
+        self._old = os.environ.get("WFB_HOME")
+        os.environ["WFB_HOME"] = self.home  # isolate machine scope from the real ~/.wfb
 
     def tearDown(self):
         if self._old is None:
-            os.environ.pop("FORGE_HOME", None)
+            os.environ.pop("WFB_HOME", None)
         else:
-            os.environ["FORGE_HOME"] = self._old
+            os.environ["WFB_HOME"] = self._old
 
     def tog(self, scope, val, sid=""):
         fg.main(["toggle", "--root", str(self.d), "--scope", scope, "--set", val] + (["--sid", sid] if sid else []))
@@ -476,33 +476,33 @@ class OnOffState(unittest.TestCase):
         self.assertEqual(fg.effective_state(self.d, "OTHER"), "off")  # everyone else inherits
 
     def test_legacy_off_marker_still_off(self):
-        (self.d / ".forge").mkdir(parents=True, exist_ok=True)
-        (self.d / ".forge" / "OFF").write_text("", encoding="utf-8")
+        (self.d / ".wfb").mkdir(parents=True, exist_ok=True)
+        (self.d / ".wfb" / "OFF").write_text("", encoding="utf-8")
         self.assertEqual(fg.effective_state(self.d, "S1"), "off")
 
     def test_machine_dir_distinct_from_home_project(self):
-        old = os.environ.pop("FORGE_HOME", None)
+        old = os.environ.pop("WFB_HOME", None)
         try:
             md = fg._machine_dir().resolve()
-            self.assertNotEqual(md, (Path.home() / ".forge").resolve(),
-                                "machine state must not collide with a $HOME project's .forge")
+            self.assertNotEqual(md, (Path.home() / ".wfb").resolve(),
+                                "machine state must not collide with a $HOME project's .wfb")
         finally:
             if old is not None:
-                os.environ["FORGE_HOME"] = old
+                os.environ["WFB_HOME"] = old
 
     def test_session_sid_cannot_escape_sessions_dir(self):
-        evil = "../../../../tmp/forge_pwn"
+        evil = "../../../../tmp/wfb_pwn"
         self.tog("session", "off", evil)
         p = fg._session_state_path(self.d, evil).resolve()
-        sessions = (self.d / ".forge" / "sessions").resolve()
+        sessions = (self.d / ".wfb" / "sessions").resolve()
         self.assertTrue(str(p).startswith(str(sessions)), f"{p} escaped {sessions}")
         self.assertEqual(fg.effective_state(self.d, evil), "off")
 
     def test_toggle_project_migrates_legacy_marker(self):
-        (self.d / ".forge").mkdir(parents=True, exist_ok=True)
-        (self.d / ".forge" / "OFF").write_text("", encoding="utf-8")
+        (self.d / ".wfb").mkdir(parents=True, exist_ok=True)
+        (self.d / ".wfb" / "OFF").write_text("", encoding="utf-8")
         self.tog("project", "on")  # should clear the legacy OFF and set STATE=on
-        self.assertFalse((self.d / ".forge" / "OFF").exists())
+        self.assertFalse((self.d / ".wfb" / "OFF").exists())
         self.assertEqual(fg.effective_state(self.d, "S1"), "on")
 
 
@@ -524,15 +524,15 @@ class HookGuards(unittest.TestCase):
         import pre_tool_use as pt
         import common
         root = str(Path(tempfile.mkdtemp()))  # real dir so realpath is stable
-        self.assertTrue(pt._is_protected_state(f"{root}/.forge/GRADE", root))
-        self.assertTrue(pt._is_protected_state(".forge/edits.txt", root))
-        self.assertTrue(pt._is_protected_state(f"{root}/.forge/STATE", root))
-        self.assertFalse(pt._is_protected_state(f"{root}/.forge/spec.json", root))
-        self.assertTrue(common.is_spec_authoring(f"{root}/.forge/spec.json", root))
+        self.assertTrue(pt._is_protected_state(f"{root}/.wfb/GRADE", root))
+        self.assertTrue(pt._is_protected_state(".wfb/edits.txt", root))
+        self.assertTrue(pt._is_protected_state(f"{root}/.wfb/STATE", root))
+        self.assertFalse(pt._is_protected_state(f"{root}/.wfb/spec.json", root))
+        self.assertTrue(common.is_spec_authoring(f"{root}/.wfb/spec.json", root))
         self.assertFalse(pt._is_protected_state("src/main.py", root))
-        # canonicalization: '.forge/../src/a.py' is NOT gate state (escapes the substring trap)
-        self.assertFalse(pt._is_protected_state(".forge/../src/a.py", root))
-        self.assertFalse(common.under_forge(".forge/../src/a.py", root))
+        # canonicalization: '.wfb/../src/a.py' is NOT gate state (escapes the substring trap)
+        self.assertFalse(pt._is_protected_state(".wfb/../src/a.py", root))
+        self.assertFalse(common.under_wfb(".wfb/../src/a.py", root))
 
 
 if __name__ == "__main__":

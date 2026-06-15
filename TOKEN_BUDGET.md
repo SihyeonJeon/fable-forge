@@ -8,12 +8,12 @@ This is a falsifiable number, so it is treated as an acceptance criterion to be
 **measured**, not asserted. Below: where overhead comes from, the design that
 keeps it small, and the measurement harness.
 
-## Where forge spends tokens
+## Where wfb spends tokens
 
 | Source | When | Steady-state size |
 | --- | --- | --- |
 | Procedure injection | once at task start (`additionalContext`) / cached `CLAUDE.md` | ~90 tok one-shot + ~300 tok cached (cache-read priced) |
-| Spec output (`.forge/spec.json`) | model writes it before coding | LIGHT ~150 · STANDARD ~600–1000 · HEAVY ~1500–2500 output tok |
+| Spec output (`.wfb/spec.json`) | model writes it before coding | LIGHT ~150 · STANDARD ~600–1000 · HEAVY ~1500–2500 output tok |
 | Gate block messages | only when the unmet-list changes (deduped) | ~200 tok × 1–2 blocks |
 | Done-gate reminder | only on state change | ~100 tok |
 
@@ -62,7 +62,7 @@ The token lever that keeps the *average* low is **grade-scaling**: LIGHT tasks
 (~150 tok); the full 8-axis spec is paid only on HEAVY (auth / payments / migration
 / security) — exactly where Fable itself escalates.
 
-**The wrapper path does NOT meet 2× — measured.** `forge-codex` runs SPEC /
+**The wrapper path does NOT meet 2× — measured.** `wfb-codex` runs SPEC /
 IMPLEMENT / VERIFY as three `codex exec`/`resume` turns. Even single-session
 (resume, ~86% cached), a measured run on one task (gpt-5.5, medium effort,
 `bench/measure_overhead.sh`):
@@ -70,7 +70,7 @@ IMPLEMENT / VERIFY as three `codex exec`/`resume` turns. Even single-session
 | arm | turns | raw_total | cache_adj |
 | --- | --- | --- | --- |
 | naked `codex exec` | 1 | 60,555 | 11,915 |
-| forged `forge-codex` | 3 | 862,522 | 132,282 |
+| wfbd `wfb-codex` | 3 | 862,522 | 132,282 |
 | **ratio** | | **14.2×** | **11.1×** |
 
 Both produced the same working output (slug.py + test). The 11× is the **3-pass
@@ -95,17 +95,17 @@ steady-state default. Bringing Codex under 2× requires one of:
 Run the same fixed task set three ways and tally tokens:
 
 ```
-arms:  naked        = model, no forge
-       forged       = model + forge (in-session hook path, NOT the wrapper)
+arms:  naked        = model, no wfb
+       wfbd       = model + wfb (in-session hook path, NOT the wrapper)
        reference    = the stronger reference model, naked   (quality anchor)
 
 per task, per arm: total tokens (input+output), from
   - Codex:        `codex exec --json` emits per-turn token usage
   - Claude Code:  session transcript usage records
 
-metric:   overhead = tokens(forged) / tokens(naked)
+metric:   overhead = tokens(wfbd) / tokens(naked)
 target:   mean(overhead) < 2.0   AND   p90(overhead) < 2.0
-quality:  rubric/SCORECARD.md score(forged) should approach score(reference);
+quality:  rubric/SCORECARD.md score(wfbd) should approach score(reference);
           that is the separate "does it lift the weaker model" question.
 ```
 
@@ -114,7 +114,7 @@ separate. <2× is a cost gate; the quality lift is the 3-arm shadow benchmark.
 
 ## Status (measured)
 
-- Grade-scaling implemented (`gates/forge_gate.py`).
+- Grade-scaling implemented (`gates/wfb_gate.py`).
 - **Claude Code in-session: measured, OVER 2× on a small task.** Native hooks fire
   (they are the live mechanism running this session), but the gate is **not** a
   single-pass additive term — it adds turns (spec → block → implement → verify), and

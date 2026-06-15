@@ -16,8 +16,8 @@ GREY, RED = "#8a8f98", "#d64545"
 
 
 def resolved_verified():
-    n = json.load(open(f"{R}/verified/forge_naked.n28_naked.json"))["resolved_instances"]
-    g = json.load(open(f"{R}/verified/forge_gated.n28_gated.json"))["resolved_instances"]
+    n = json.load(open(f"{R}/verified/wfb_naked.n28_naked.json"))["resolved_instances"]
+    g = json.load(open(f"{R}/verified/wfb_gated.n28_gated.json"))["resolved_instances"]
     return n, g, 28
 
 
@@ -49,7 +49,7 @@ def main():
     raw = [(vn, vN, vg), (pn, pN, pg), (an, aN, ag)]
     x = np.arange(3); w = 0.38
     b1 = ax[0].bar(x - w / 2, nk, w, color=GREY, label="gate OFF (naked)")
-    b2 = ax[0].bar(x + w / 2, gt, w, color=RED, label="gate ON (forge)")
+    b2 = ax[0].bar(x + w / 2, gt, w, color=RED, label="gate ON (wfb)")
     ax[0].set_xticks(x); ax[0].set_xticklabels(groups)
     ax[0].set_ylabel("% resolved"); ax[0].set_ylim(0, 100)
     ax[0].set_title("Resolved rate — SWE-bench Verified + Pro (opus)")
@@ -70,7 +70,7 @@ def main():
     for bar, v in zip(b, ct):
         ax[2].text(bar.get_x() + bar.get_width() / 2, v, f"${v:.2f}", ha="center", va="bottom")
 
-    fig.suptitle(f"Forge gate on SWE-bench (Verified+Pro, N={aN}, opus, same harness): "
+    fig.suptitle(f"Wfb gate on SWE-bench (Verified+Pro, N={aN}, opus, same harness): "
                  f"{ag} vs {an} resolved (+{ag-an}), 0 regressions, ~{tk[1]/tk[0]:.1f}x tokens",
                  fontsize=12, y=1.02)
     fig.tight_layout()

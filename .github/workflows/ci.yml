@@ -17,6 +17,6 @@ jobs:
           git config --global user.email ci@example.com
           git config --global user.name ci
       - name: unit tests
-        run: python3 -m unittest -q tests.test_forge_gate
+        run: python3 -m unittest -q tests.test_wfb_gate
       - name: full suite
         run: bash tests/run_all.sh

@@ -1,18 +1,18 @@
 # The judge layer (semantic gate)
 
-The deterministic gate (`gates/forge_gate.py`) checks **form** — fields present,
+The deterministic gate (`gates/wfb_gate.py`) checks **form** — fields present,
 well-typed, non-empty, paths real, no forbidden edits. It cannot tell a thoughtful
 spec from a form-valid but lazy one: a `restated_goal` that only paraphrases, a
 generic "do it differently" rejected_alternative, a `"be careful"` mitigation, or a
 trivially-passing `acceptance.verify.value: "true"` all pass the gate.
 
-`gates/forge_judge.py` is the **semantic** gate: an LLM scores the spec's *content*
+`gates/wfb_judge.py` is the **semantic** gate: an LLM scores the spec's *content*
 against `rubric/SCORECARD.md` (0–2 per dimension). It is **off the hot path** — a real
 model call, for HEAVY tasks / corpus promotion, not every edit.
 
 ```sh
-forge_judge.py --spec .forge/spec.json --phase spec --model gpt-5.5   # 6 spec dims
-forge_judge.py --spec .forge/spec.json --phase done --model gpt-5.5   # + validation_loop, failure_handling
+wfb_judge.py --spec .wfb/spec.json --phase spec --model gpt-5.5   # 6 spec dims
+wfb_judge.py --spec .wfb/spec.json --phase done --model gpt-5.5   # + validation_loop, failure_handling
 # exit 0 = pass (every active dim >= 1), 1 = fail
 ```
 
@@ -55,8 +55,8 @@ the generic alternatives, the vacuous mitigation.
 
 ```
 work prompt
-  -> forge_gate (FORM, deterministic, free, every task)         [block edits until spec valid]
-  -> forge_judge (SEMANTICS, LLM, HEAVY/corpus only)            [reject shallow-but-valid specs]
+  -> wfb_gate (FORM, deterministic, free, every task)         [block edits until spec valid]
+  -> wfb_judge (SEMANTICS, LLM, HEAVY/corpus only)            [reject shallow-but-valid specs]
   -> acceptance commands (CORRECTNESS, run the tests)           [does the code actually work]
 ```
 Three layers, increasing cost and depth: shape → reasoning quality → real behavior.

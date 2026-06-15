@@ -1,6 +1,6 @@
 # Quality benchmark — gate ON vs OFF
 
-Question: does forcing the spec+verify discipline (the forge gate) lift a model's
+Question: does forcing the spec+verify discipline (the wfb gate) lift a model's
 **output correctness** — i.e., does a weaker model + the layer reach a stronger
 model's quality? (The token-cost side is in `../TOKEN_BUDGET.md`.)
 
@@ -11,13 +11,13 @@ model's quality? (The token-cost side is in `../TOKEN_BUDGET.md`.)
   + invalid-must-raise), `is_prime` ("optimize" while preserving n<2/negative edges).
 - Grader validated to discriminate: a good `slugify` scores 10/10, a naive one 3/10;
   a good `is_prime` 10/10, the classic `i*i<=n` (no `n<2` guard) 7/10.
-- Two arms, SAME task: **naked** (`codex exec`) vs **forged** (`forge-codex-accept`,
-  worktree + gate). Score = hidden assertions passed / total. The forged arm's
+- Two arms, SAME task: **naked** (`codex exec`) vs **wfbd** (`wfb-codex-accept`,
+  worktree + gate). Score = hidden assertions passed / total. The wfbd arm's
   produced module is graded (gate engaged: tasks B/C logged `ACCEPTED`).
 
 ## Results
 
-| task | symbol | naked | forged (gate) |
+| task | symbol | naked | wfbd (gate) |
 | --- | --- | --- | --- |
 | A | slugify | 10/10 | 10/10 |
 | B | parse_duration | 10/10 | 10/10 |
@@ -32,7 +32,7 @@ task, both arms, both models.**
 weak one (gpt-5.4-mini) already produce fully-correct, edge-case-complete code
 *naked*, so the gate has nothing to add.
 
-This is consistent with everything else measured: **the forge layer enforces
+This is consistent with everything else measured: **the wfb layer enforces
 *process*, not *capability*.** It does not inject intelligence. Its demonstrated
 value is enforcement (no unspeced/forbidden work reaches the repo), evidence, and
 auditability — not making a weaker model smarter on tasks it can already do.
@@ -51,5 +51,5 @@ Where a lift *could* appear, and why it didn't here:
 ## Reproduce
 
 ```sh
-FORGE_MODEL=gpt-5.4-mini FORGE_EFFORT=medium bash bench/run_quality.sh
+WFB_MODEL=gpt-5.4-mini WFB_EFFORT=medium bash bench/run_quality.sh
 ```

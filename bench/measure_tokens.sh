@@ -6,7 +6,7 @@
 # Metric: gross tokens (input + cache_creation + cache_read + output) and $ cost.
 # Rule: ratio gated/naked < 1.6 -> report in README; >= 1.6 -> exclude.
 set +e
-FORGE="$(cd "$(dirname "$0")/.." && pwd)"
+WFB="$(cd "$(dirname "$0")/.." && pwd)"
 HOOKS="$FORGE/adapters/hooks"
 REPS="${REPS:-2}"
 TASK="${BENCH_TASK:-Implement an LRUCache class in lru.py with get(key) and put(key, value) in O(1) using a dict plus a doubly linked list, a capacity set in the constructor, evicting the least-recently-used entry on overflow. get returns -1 on miss. Add test_lru.py with pytest cases for eviction, update-existing-key, and capacity 1. Stdlib only.}"
@@ -37,11 +37,11 @@ codex_model(){ # gpt-5.5
     mkdir -p "$N"; ( cd "$N" && git init -q )
     ( cd "$N" && codex exec --json --skip-git-repo-check -s workspace-write -m gpt-5.5 -c model_reasoning_effort=medium "$TASK" < /dev/null > run.jsonl 2>/dev/null )
     mkdir -p "$REPO"; ( cd "$REPO" && git init -q && git config user.email t@t && git config user.name t && printf '#\n' > README.md && git add -A && git commit -qm base )
-    ( FORGE_KEEP=1 FORGE_EFFORT=medium "$FORGE/adapters/codex/forge-codex-accept.sh" "$TASK" --repo "$REPO" >/dev/null 2>&1 )
-    WT=$(ls -dt "${TMPDIR:-/tmp}"/forge-run-* /private/var/folders/*/*/T/forge-run-* 2>/dev/null | head -1)
+    ( WFB_KEEP=1 WFB_EFFORT=medium "$FORGE/adapters/codex/wfb-codex-accept.sh" "$TASK" --repo "$REPO" >/dev/null 2>&1 )
+    WT=$(ls -dt "${TMPDIR:-/tmp}"/wfb-run-* /private/var/folders/*/*/T/wfb-run-* 2>/dev/null | head -1)
     gr(){ python3 "$FORGE/bench/sum_tokens.py" "$1" 2>/dev/null | python3 -c "import json,sys;print(json.load(sys.stdin)['raw_total'])" 2>/dev/null||echo 0; }
     local gb=N; [ -f "$WT/lru.py" ] && gb=Y
-    echo "gpt-5.5 $i $(gr "$N/run.jsonl") $(gr "$WT/.forge/codex_run.jsonl") - - $(built "$N") $gb" | tee -a "$R"
+    echo "gpt-5.5 $i $(gr "$N/run.jsonl") $(gr "$WT/.wfb/codex_run.jsonl") - - $(built "$N") $gb" | tee -a "$R"
   done
 }
 

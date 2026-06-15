@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# fable-forge full sequential test suite (local, no network, no Codex API).
+# wfb full sequential test suite (local, no network, no Codex API).
 # Exercises: unit tests, gate lifecycle, runtime-agnostic hook block (Claude Code +
-# Codex apply_patch), .forge exemption, edit logging, forbidden_paths verification,
+# Codex apply_patch), .wfb exemption, edit logging, forbidden_paths verification,
 # installer merge/uninstall roundtrip. Prints PASS/FAIL per step; exits 1 on any fail.
 set +e
 FORGE="$(cd "$(dirname "$0")/.." && pwd)"
-GATE="$FORGE/gates/forge_gate.py"
+GATE="$FORGE/gates/wfb_gate.py"
 HOOKS="$FORGE/adapters/hooks"
 PASS=0; FAIL=0
 ok(){ echo "  PASS  $1"; PASS=$((PASS+1)); }
@@ -13,14 +13,14 @@ no(){ echo "  FAIL  $1"; FAIL=$((FAIL+1)); }
 chk(){ [ "$1" = "$2" ] && ok "$3" || no "$3 (got '$1' want '$2')"; }
 
 echo "== 1. unit tests =="
-( cd "$FORGE" && python3 -m unittest -q tests.test_forge_gate ) >/tmp/ut.txt 2>&1 \
+( cd "$FORGE" && python3 -m unittest -q tests.test_wfb_gate ) >/tmp/ut.txt 2>&1 \
   && ok "unittest" || { no "unittest"; tail -5 /tmp/ut.txt; }
 
 echo "== 2. gate lifecycle (deterministic) =="
 D="$(mktemp -d)"; echo "x=1" > "$D/real.py"
 python3 "$GATE" scaffold --root "$D" --goal "add a sort helper to real.py" >/dev/null
 python3 "$GATE" validate --root "$D" --gate spec >/dev/null 2>&1; chk "$?" "1" "empty spec BLOCKED"
-cat > "$D/.forge/spec.json" <<JSON
+cat > "$D/.wfb/spec.json" <<JSON
 {"grade":"STANDARD","raw_goal":"add a sort helper","restated_goal":"Add a stable sort helper to real.py without changing existing function signatures, scoped to real.py.",
 "non_goals":["no new dependency"],"constraints":{"invariant":["existing signatures unchanged"]},
 "must_read":[{"path":"real.py","authority_reason":"owns the module API the helper joins"}],
@@ -32,33 +32,33 @@ JSON
 python3 "$GATE" validate --root "$D" --gate spec >/dev/null 2>&1; chk "$?" "0" "filled spec PASS"
 python3 "$GATE" validate --root "$D" --gate done >/dev/null 2>&1; chk "$?" "1" "done BLOCKED (no evidence)"
 python3 - "$D" <<'PY'
-import json,sys; f=sys.argv[1]+"/.forge/spec.json"; d=json.load(open(f))
+import json,sys; f=sys.argv[1]+"/.wfb/spec.json"; d=json.load(open(f))
 d["acceptance_criteria"][0]["evidence"]="ran pytest: 3 passed"; json.dump(d,open(f,"w"))
 PY
 python3 "$GATE" validate --root "$D" --gate done >/dev/null 2>&1; chk "$?" "0" "done PASS (evidence)"
-echo "config/policy.py" > "$D/.forge/edits.txt"
+echo "config/policy.py" > "$D/.wfb/edits.txt"
 python3 "$GATE" validate --root "$D" --gate done >/dev/null 2>&1; chk "$?" "1" "forbidden_paths edit BLOCKS done"
-python3 "$GATE" close --root "$D" --force >/dev/null 2>&1; chk "$?" "1" "--force refused without FORGE_BYPASS"
+python3 "$GATE" close --root "$D" --force >/dev/null 2>&1; chk "$?" "1" "--force refused without WFB_BYPASS"
 
 echo "== 3. runtime-agnostic hook block (clean payloads) =="
 python3 - "$D" "$HOOKS" >/tmp/hooks.txt 2>&1 <<'PY'
 import json, os, subprocess, sys, tempfile
 D, HOOKS = sys.argv[1], sys.argv[2]
-env = dict(os.environ, CLAUDE_PROJECT_DIR=D, FORGE_HOME=tempfile.mkdtemp()); env.pop("FORGE_BYPASS", None)
-os.makedirs(D+"/.forge", exist_ok=True)
-json.dump({"grade":"STANDARD","raw_goal":"x"}, open(D+"/.forge/spec.json","w"))
-open(D+"/.forge/ACTIVE","w").write("x")
+env = dict(os.environ, CLAUDE_PROJECT_DIR=D, WFB_HOME=tempfile.mkdtemp()); env.pop("WFB_BYPASS", None)
+os.makedirs(D+"/.wfb", exist_ok=True)
+json.dump({"grade":"STANDARD","raw_goal":"x"}, open(D+"/.wfb/spec.json","w"))
+open(D+"/.wfb/ACTIVE","w").write("x")
 def hook(h,p):
     r=subprocess.run([sys.executable,f"{HOOKS}/{h}"],input=json.dumps(p),capture_output=True,text=True,env=env)
     return r.returncode
 def out(name,cond): print(f"{'PASS' if cond else 'FAIL'}|{name}")
 out("CC Edit blocked", hook("pre_tool_use.py",{"tool_name":"Edit","tool_input":{"file_path":D+"/real.py"},"cwd":D})==2)
 out("Codex apply_patch blocked", hook("pre_tool_use.py",{"tool_name":"apply_patch","tool_input":{"command":"*** Update File: real.py\n+x"},"cwd":D})==2)
-out(".forge authoring allowed", hook("pre_tool_use.py",{"tool_name":"apply_patch","tool_input":{"command":f"*** Update File: {D}/.forge/spec.json\n+x"},"cwd":D})==0)
+out(".wfb authoring allowed", hook("pre_tool_use.py",{"tool_name":"apply_patch","tool_input":{"command":f"*** Update File: {D}/.wfb/spec.json\n+x"},"cwd":D})==0)
 out("non-edit ignored", hook("pre_tool_use.py",{"tool_name":"Read","tool_input":{"file_path":D+"/real.py"},"cwd":D})==0)
-open(D+"/.forge/edits.txt","w").close()
+open(D+"/.wfb/edits.txt","w").close()
 hook("post_tool_use.py",{"tool_name":"apply_patch","tool_input":{"command":"*** Update File: src/x.py\n+y"},"cwd":D})
-out("PostToolUse logged path", "src/x.py" in open(D+"/.forge/edits.txt").read())
+out("PostToolUse logged path", "src/x.py" in open(D+"/.wfb/edits.txt").read())
 PY
 while IFS='|' read -r st name; do chk "$st" "PASS" "$name"; done < /tmp/hooks.txt
 
@@ -72,7 +72,7 @@ python3 -c "import json;c=json.load(open('$TS'));print('OK' if not c.get('hooks'
 echo "== 5. installer syntax =="
 bash -n "$FORGE/adapters/claude-code/install.sh" && ok "CC install.sh" || no "CC install.sh"
 bash -n "$FORGE/adapters/codex/install.sh" && ok "Codex install.sh" || no "Codex install.sh"
-bash -n "$FORGE/adapters/codex/forge-codex.sh" && ok "forge-codex.sh" || no "forge-codex.sh"
+bash -n "$FORGE/adapters/codex/wfb-codex.sh" && ok "wfb-codex.sh" || no "wfb-codex.sh"
 
 echo "== 6. worktree-accept mechanics (no codex) =="
 command -v git >/dev/null 2>&1 && {
@@ -80,7 +80,7 @@ command -v git >/dev/null 2>&1 && {
     && printf 'v1\n' > app.py && mkdir -p config && printf 'policy\n' > config/policy.py \
     && git add -A && git commit -qm base ) >/dev/null 2>&1
   BASE="$(git -C "$RR" rev-parse HEAD)"
-  spec_into(){ mkdir -p "$1/.forge"; echo x > "$1/.forge/ACTIVE"; echo STANDARD > "$1/.forge/GRADE"; cat > "$1/.forge/spec.json" <<JSON
+  spec_into(){ mkdir -p "$1/.wfb"; echo x > "$1/.wfb/ACTIVE"; echo STANDARD > "$1/.wfb/GRADE"; cat > "$1/.wfb/spec.json" <<JSON
 {"grade":"STANDARD","raw_goal":"add feature","restated_goal":"Add a feature module without touching config policy, scoped to feature.py.",
 "non_goals":["no config changes"],"constraints":{"invariant":["config/policy.py unchanged"]},
 "must_read":[{"path":"app.py","authority_reason":"owns the entry the feature joins"}],
@@ -93,7 +93,7 @@ JSON
   WA="$(mktemp -d)/wt"; git -C "$RR" worktree add --detach "$WA" "$BASE" >/dev/null 2>&1
   spec_into "$WA"; printf 'def feature():\n    return 1\n' > "$WA/feature.py"
   git -C "$WA" add -A >/dev/null 2>&1
-  git -C "$WA" diff --cached --name-only "$BASE" | grep -v '^\.forge/' > "$WA/.forge/edits.txt"
+  git -C "$WA" diff --cached --name-only "$BASE" | grep -v '^\.wfb/' > "$WA/.wfb/edits.txt"
   python3 "$GATE" validate --root "$WA" --gate done >/dev/null 2>&1; chk "$?" "0" "accept: allowed edit passes gate"
   git -C "$WA" diff --cached --binary "$BASE" | git -C "$RR" apply --index >/dev/null 2>&1
   [ -f "$RR/feature.py" ] && ok "accept: diff applied to real repo" || no "accept: diff applied"
@@ -102,7 +102,7 @@ JSON
   WB="$(mktemp -d)/wt"; git -C "$RR" worktree add --detach "$WB" "$BASE" >/dev/null 2>&1
   spec_into "$WB"; printf 'def feature():\n    return 1\n' > "$WB/feature.py"; printf 'HACKED\n' > "$WB/config/policy.py"
   git -C "$WB" add -A >/dev/null 2>&1
-  git -C "$WB" diff --cached --name-only "$BASE" | grep -v '^\.forge/' > "$WB/.forge/edits.txt"
+  git -C "$WB" diff --cached --name-only "$BASE" | grep -v '^\.wfb/' > "$WB/.wfb/edits.txt"
   python3 "$GATE" validate --root "$WB" --gate done >/dev/null 2>&1; chk "$?" "1" "reject: forbidden edit blocks gate"
   chk "$(cat "$RR/config/policy.py")" "policy" "reject: real repo policy untouched"
   git -C "$RR" worktree remove --force "$WB" >/dev/null 2>&1
@@ -112,27 +112,27 @@ echo "== 7. adversarial: hook exemption over-match (clean payloads) =="
 python3 - "$HOOKS" "$GATE" >/tmp/adv.txt 2>&1 <<'PY'
 import json, os, subprocess, sys, tempfile
 HOOKS, GATE = sys.argv[1], sys.argv[2]
-D = tempfile.mkdtemp(); env = dict(os.environ, CLAUDE_PROJECT_DIR=D, FORGE_HOME=tempfile.mkdtemp()); env.pop("FORGE_BYPASS", None)
+D = tempfile.mkdtemp(); env = dict(os.environ, CLAUDE_PROJECT_DIR=D, WFB_HOME=tempfile.mkdtemp()); env.pop("WFB_BYPASS", None)
 subprocess.run([sys.executable, GATE, "scaffold", "--root", D, "--goal", "add x"], capture_output=True)
 def pre(p): return subprocess.run([sys.executable, f"{HOOKS}/pre_tool_use.py"], input=json.dumps(p), capture_output=True, text=True, env=env).returncode
 def out(n, c): print(f"{'PASS' if c else 'FAIL'}|{n}")
-# real-file edit whose patch text merely MENTIONS .forge -> must BLOCK (over-match closed)
-out("over-match real-file edit blocked", pre({"tool_name": "apply_patch", "tool_input": {"command": "# note: see .forge/ later\n*** Update File: src/app.py\n+evil"}, "cwd": D}) == 2)
-# pure .forge authoring -> allowed
-out("pure .forge authoring allowed", pre({"tool_name": "apply_patch", "tool_input": {"command": "*** Update File: .forge/spec.json\n+{}"}, "cwd": D}) == 0)
+# real-file edit whose patch text merely MENTIONS .wfb -> must BLOCK (over-match closed)
+out("over-match real-file edit blocked", pre({"tool_name": "apply_patch", "tool_input": {"command": "# note: see .wfb/ later\n*** Update File: src/app.py\n+evil"}, "cwd": D}) == 2)
+# pure .wfb authoring -> allowed
+out("pure .wfb authoring allowed", pre({"tool_name": "apply_patch", "tool_input": {"command": "*** Update File: .wfb/spec.json\n+{}"}, "cwd": D}) == 0)
 PY
 while IFS='|' read -r st name; do chk "$st" "PASS" "$name"; done < /tmp/adv.txt
 
-echo "== 8. in-session toggle (forge off / on) =="
+echo "== 8. in-session toggle (wfb off / on) =="
 python3 - "$HOOKS" "$GATE" >/tmp/tog.txt 2>&1 <<'PY'
 import json, os, subprocess, sys, tempfile
 HOOKS, GATE = sys.argv[1], sys.argv[2]
-D = tempfile.mkdtemp(); env = dict(os.environ, CLAUDE_PROJECT_DIR=D, FORGE_HOME=tempfile.mkdtemp()); env.pop("FORGE_BYPASS", None)
+D = tempfile.mkdtemp(); env = dict(os.environ, CLAUDE_PROJECT_DIR=D, WFB_HOME=tempfile.mkdtemp()); env.pop("WFB_BYPASS", None)
 subprocess.run([sys.executable, GATE, "scaffold", "--root", D, "--goal", "add x"], capture_output=True)
 def ups(p, sid="S1"): return subprocess.run([sys.executable, f"{HOOKS}/user_prompt_submit.py"], input=json.dumps({"prompt": p, "cwd": D, "session_id": sid}), capture_output=True, text=True, env=env).stdout
 def edit_rc(sid="S1"): return subprocess.run([sys.executable, f"{HOOKS}/pre_tool_use.py"], input=json.dumps({"tool_name": "Edit", "tool_input": {"file_path": D + "/a.py"}, "cwd": D, "session_id": sid}), capture_output=True, text=True, env=env).returncode
 def state():
-    p = os.path.join(D, ".forge", "STATE"); return open(p).read().strip() if os.path.exists(p) else "(none)"
+    p = os.path.join(D, ".wfb", "STATE"); return open(p).read().strip() if os.path.exists(p) else "(none)"
 def out(n, c): print(f"{'PASS' if c else 'FAIL'}|{n}")
 out("edit blocked before toggle", edit_rc() == 2)
 o = ups("wfb off"); out("wfb off blocks prompt + project STATE=off", '"decision": "block"' in o and state() == "off")
@@ -151,7 +151,7 @@ import json, os, subprocess, sys, tempfile
 HOOKS, GATE = sys.argv[1], sys.argv[2]
 D = tempfile.mkdtemp(); open(D + "/real.py", "w").write("x=1")
 subprocess.run([sys.executable, GATE, "scaffold", "--root", D, "--goal", "add x"], capture_output=True)
-env = dict(os.environ, CLAUDE_PROJECT_DIR=D, FORGE_HOME=tempfile.mkdtemp()); env.pop("FORGE_BYPASS", None)
+env = dict(os.environ, CLAUDE_PROJECT_DIR=D, WFB_HOME=tempfile.mkdtemp()); env.pop("WFB_BYPASS", None)
 def pre(raw, e=env): return subprocess.run([sys.executable, f"{HOOKS}/pre_tool_use.py"], input=raw, capture_output=True, text=True, env=e).returncode
 def out(n, c): print(f"{'PASS' if c else 'FAIL'}|{n}")
 ap = lambda *ps: json.dumps({"tool_name": "apply_patch", "tool_input": {"command": "".join(f"*** Update File: {p}\n+x\n" for p in ps)}, "cwd": D})
@@ -159,9 +159,9 @@ out("empty stdin fails open", pre("") == 0)
 out("garbage stdin fails open", pre("not json") == 0)
 out("no tool_input fails open (no brick)", pre(json.dumps({"tool_name": "Edit", "cwd": D})) == 0)
 out("non-edit tool ignored", pre(json.dumps({"tool_name": "Read", "tool_input": {"file_path": D + "/x"}, "cwd": D})) == 0)
-out("apply_patch mixed (.forge+real) blocks", pre(ap(D + "/.forge/spec.json", D + "/real.py")) == 2)
-out("apply_patch only .forge allowed", pre(ap(D + "/.forge/spec.json")) == 0)
-out("FORGE_BYPASS allows", pre(json.dumps({"tool_name": "Edit", "tool_input": {"file_path": D + "/real.py"}, "cwd": D}), dict(env, FORGE_BYPASS="1")) == 0)
+out("apply_patch mixed (.wfb+real) blocks", pre(ap(D + "/.wfb/spec.json", D + "/real.py")) == 2)
+out("apply_patch only .wfb allowed", pre(ap(D + "/.wfb/spec.json")) == 0)
+out("WFB_BYPASS allows", pre(json.dumps({"tool_name": "Edit", "tool_input": {"file_path": D + "/real.py"}, "cwd": D}), dict(env, WFB_BYPASS="1")) == 0)
 PY
 while IFS='|' read -r st name; do chk "$st" "PASS" "$name"; done < /tmp/edge.txt
 

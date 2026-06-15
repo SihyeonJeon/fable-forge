@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# forge-codex-accept — headless Codex enforcement by DISPOSABLE WORKTREE + post-run
+# wfb-codex-accept — headless Codex enforcement by DISPOSABLE WORKTREE + post-run
 # acceptance gate. Co-designed with Codex (cross-verified) because `codex exec` cannot
 # hard-block file writes: edits surface as native `file_change` items that bypass the
 # PreToolUse/apply_patch hook ("file change approval is not supported in exec mode").
@@ -10,8 +10,8 @@
 # invocation (not the wrapper's 3), but the gated worker does more — write a full spec +
 # run real verification — so measured cost is over 2x a naked run on STANDARD (TOKEN_BUDGET.md).
 #
-#   forge-codex-accept "<goal>" [--repo DIR]
-#   FORGE_MODEL=gpt-5.5 FORGE_EFFORT=medium forge-codex-accept "<goal>"
+#   wfb-codex-accept "<goal>" [--repo DIR]
+#   WFB_MODEL=gpt-5.5 WFB_EFFORT=medium wfb-codex-accept "<goal>"
 set -euo pipefail
 
 # Resolve through symlinks — this script is installed onto PATH as a symlink, so $0 is
@@ -19,19 +19,19 @@ set -euo pipefail
 SELF="$0"
 while [ -h "$SELF" ]; do d="$(cd "$(dirname "$SELF")" && pwd)"; SELF="$(readlink "$SELF")"; case "$SELF" in /*) ;; *) SELF="$d/$SELF";; esac; done
 HERE="$(cd "$(dirname "$SELF")" && pwd)"
-GATE="$(cd "$HERE/../../gates" && pwd)/forge_gate.py"
-REPO="$PWD"; MODEL="${FORGE_MODEL:-gpt-5.5}"; EFFORT="${FORGE_EFFORT:-}"; GOAL=""
+GATE="$(cd "$HERE/../../gates" && pwd)/wfb_gate.py"
+REPO="$PWD"; MODEL="${WFB_MODEL:-gpt-5.5}"; EFFORT="${WFB_EFFORT:-}"; GOAL=""
 while [ $# -gt 0 ]; do case "$1" in --repo) REPO="$2"; shift 2;; *) GOAL="$1"; shift;; esac; done
-[ -n "$GOAL" ] || { echo "usage: forge-codex-accept \"<goal>\" [--repo DIR]" >&2; exit 2; }
+[ -n "$GOAL" ] || { echo "usage: wfb-codex-accept \"<goal>\" [--repo DIR]" >&2; exit 2; }
 
 REPO="$(cd "$REPO" && pwd)"
 # Indicator (Codex has no custom status line like Claude Code, so we announce on the
 # stream instead): make it obvious the gate is mediating this run.
 echo "[why-was-fable-banned] gate active — worktree-accept (only a gate-passing diff reaches $REPO)" >&2
-git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || { echo "forge: --repo must be a git repo" >&2; exit 2; }
+git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || { echo "wfb: --repo must be a git repo" >&2; exit 2; }
 BASE="$(git -C "$REPO" rev-parse HEAD)"
-WT="${TMPDIR:-/tmp}/forge-run-$(git -C "$REPO" rev-parse --short HEAD)-$$"
-cleanup(){ [ -n "${FORGE_KEEP:-}" ] && { echo "forge: worktree kept at $WT" >&2; return 0; }
+WT="${TMPDIR:-/tmp}/wfb-run-$(git -C "$REPO" rev-parse --short HEAD)-$$"
+cleanup(){ [ -n "${WFB_KEEP:-}" ] && { echo "wfb: worktree kept at $WT" >&2; return 0; }
            git -C "$REPO" worktree remove --force "$WT" >/dev/null 2>&1 || rm -rf "$WT"; }
 trap cleanup EXIT
 
@@ -44,7 +44,7 @@ CONTRACT="$(python3 "$GATE" contract --root "$WT" 2>/dev/null)"
 
 OPTS=(--json --skip-git-repo-check -s workspace-write -m "$MODEL")
 [ -n "$EFFORT" ] && OPTS+=(-c model_reasoning_effort="$EFFORT")
-RUNLOG="$WT/.forge/codex_run.jsonl"
+RUNLOG="$WT/.wfb/codex_run.jsonl"
 codex exec "${OPTS[@]}" -C "$WT" "Task: ${GOAL}
 
 ${CONTRACT}
@@ -56,11 +56,11 @@ criterion's \"evidence\". Do not fabricate evidence." \
 
 # Hooks don't fire in exec, so derive the REAL edit set from git for the forbidden check.
 refresh_edits(){ git -C "$WT" add -A >/dev/null 2>&1 || true
-  git -C "$WT" diff --cached --name-only "$BASE" 2>/dev/null | grep -v '^\.forge/' > "$WT/.forge/edits.txt" || true; }
+  git -C "$WT" diff --cached --name-only "$BASE" 2>/dev/null | grep -v '^\.wfb/' > "$WT/.wfb/edits.txt" || true; }
 refresh_edits
 
 # Verify-retry: don't discard good work over a missing evidence field — resume the SAME
-# session up to FORGE_DONE_TRIES to finish/verify before rejecting (still fail-closed).
+# session up to WFB_DONE_TRIES to finish/verify before rejecting (still fail-closed).
 TID="$(python3 - "$RUNLOG" 2>/dev/null <<'PY'
 import json, sys
 tid = ""
@@ -75,7 +75,7 @@ PY
 )"
 RESUME_OPTS=(--json --skip-git-repo-check -m "$MODEL")
 [ -n "$EFFORT" ] && RESUME_OPTS+=(-c model_reasoning_effort="$EFFORT")
-DONE_TRIES="${FORGE_DONE_TRIES:-2}"
+DONE_TRIES="${WFB_DONE_TRIES:-2}"
 try=0
 while ! python3 "$GATE" validate --root "$WT" --gate done >/dev/null 2>&1; do
   [ -n "$TID" ] && [ "$try" -lt "$DONE_TRIES" ] || break
@@ -83,7 +83,7 @@ while ! python3 "$GATE" validate --root "$WT" --gate done >/dev/null 2>&1; do
   errs="$(python3 "$GATE" validate --root "$WT" --gate done 2>&1 || true)"
   ( cd "$WT" && codex exec resume "${RESUME_OPTS[@]}" "$TID" "The done gate is unmet. Fix EXACTLY these, then stop:
 ${errs}
-Run each acceptance_criteria command and write its live output into that criterion's \"evidence\" in .forge/spec.json. If the implementation is incomplete, finish the smallest change first. Do not fabricate output." \
+Run each acceptance_criteria command and write its live output into that criterion's \"evidence\" in .wfb/spec.json. If the implementation is incomplete, finish the smallest change first. Do not fabricate output." \
     < /dev/null >> "$RUNLOG" 2>/dev/null ) || true
   refresh_edits
 done
@@ -92,13 +92,13 @@ if python3 "$GATE" validate --root "$WT" --gate done; then
   git -C "$WT" diff --cached --binary "$BASE" > "$WT/accepted.patch" 2>/dev/null || true
   if [ -s "$WT/accepted.patch" ]; then
     git -C "$REPO" apply --index --allow-empty "$WT/accepted.patch" 2>/dev/null \
-      && echo "forge-codex-accept: ACCEPTED — gate passed; diff applied to $REPO (staged)." \
-      || { echo "forge-codex-accept: gate passed but patch did not apply cleanly (real repo dirty?). Patch at $WT kept." >&2; trap - EXIT; exit 3; }
+      && echo "wfb-codex-accept: ACCEPTED — gate passed; diff applied to $REPO (staged)." \
+      || { echo "wfb-codex-accept: gate passed but patch did not apply cleanly (real repo dirty?). Patch at $WT kept." >&2; trap - EXIT; exit 3; }
   else
-    echo "forge-codex-accept: gate passed but produced no diff."
+    echo "wfb-codex-accept: gate passed but produced no diff."
   fi
   exit 0
 else
-  echo "forge-codex-accept: REJECTED — done gate unmet. Real repo UNTOUCHED; worktree discarded." >&2
+  echo "wfb-codex-accept: REJECTED — done gate unmet. Real repo UNTOUCHED; worktree discarded." >&2
   exit 1
 fi

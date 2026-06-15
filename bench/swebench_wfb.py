@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""SWE-bench Verified slice: gate OFF (naked) vs ON (forge) on the SAME instances,
+"""SWE-bench Verified slice: gate OFF (naked) vs ON (wfb) on the SAME instances,
 same model (opus). Generates a patch per arm with `claude -p`, scores with the official
 swebench Docker harness. Run with the venv python that has swebench+datasets installed.
 
-  /tmp/swe_venv/bin/python bench/swebench_forge.py --n 1            # smoke
-  /tmp/swe_venv/bin/python bench/swebench_forge.py --ids a,b,c     # explicit
+  /tmp/swe_venv/bin/python bench/swebench_wfb.py --n 1            # smoke
+  /tmp/swe_venv/bin/python bench/swebench_wfb.py --ids a,b,c     # explicit
 
 Honest expectation: the gate enforces process, not capability, so resolved-rate is
 expected to be ~equal; this measures it rather than asserting it.
@@ -12,9 +12,9 @@ expected to be ~equal; this measures it rather than asserting it.
 import argparse, json, os, subprocess, sys, time
 from pathlib import Path
 
-FORGE = Path("/Users/jeonsihyeon/fable-forge")
+FORGE = Path("/Users/jeonsihyeon/wfb")
 HOOKS = FORGE / "adapters/hooks"
-GATE = FORGE / "gates/forge_gate.py"
+GATE = FORGE / "gates/wfb_gate.py"
 WORK = Path("/tmp/swe"); WORK.mkdir(exist_ok=True)
 DATASET = "princeton-nlp/SWE-bench_Verified"
 LIGHT = ("psf/requests", "pallets/flask", "pytest-dev/pytest")
@@ -62,9 +62,9 @@ def gen_patch(repo, problem, dest, gated, model="opus"):
         cost = j.get("total_cost_usd", 0); turns = j.get("num_turns", 0)
     except Exception:
         pass
-    # stage everything except forge/claude artifacts, take the diff as the patch
-    sh(["git", "add", "-A", "--", ".", ":!.forge", ":!.claude"], cwd=dest)
-    patch = sh(["git", "diff", "--cached", "--", ".", ":!.forge", ":!.claude"], cwd=dest).stdout
+    # stage everything except wfb/claude artifacts, take the diff as the patch
+    sh(["git", "add", "-A", "--", ".", ":!.wfb", ":!.claude"], cwd=dest)
+    patch = sh(["git", "diff", "--cached", "--", ".", ":!.wfb", ":!.claude"], cwd=dest).stdout
     return patch, tokens, cost, turns
 
 
@@ -108,7 +108,7 @@ def main():
             patch, tok, cost, turns = gen_patch(repo, e["problem_statement"], d, gated=(arm == "gated"), model=a.model)
             dt = time.time() - t0
             print(f"  {arm:6s} turns={turns} tokens={tok} cost=${cost:.3f} {dt:.0f}s patch={len(patch)}B", flush=True)
-            preds[arm].append({"instance_id": iid, "model_name_or_path": f"forge_{arm}", "model_patch": patch})
+            preds[arm].append({"instance_id": iid, "model_name_or_path": f"wfb_{arm}", "model_patch": patch})
             meta.append({"instance_id": iid, "arm": arm, "tokens": tok, "cost": cost, "turns": turns, "patch_bytes": len(patch), "secs": round(dt)})
 
     # merge with any existing preds/meta (so a slice can be grown without re-running it)

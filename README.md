@@ -12,7 +12,7 @@
 
 ![why-was-fable-banned](assets/social-preview.jpg)
 
-The agent can't edit code until it writes `.forge/spec.json` and a deterministic
+The agent can't edit code until it writes `.wfb/spec.json` and a deterministic
 gate accepts it: restated goal, non-goals, context chosen by authority, ≥2 rejected
 alternatives with the boundary each breaks, risks, and runnable acceptance. One
 shared gate, installed as hooks. Works in **Claude Code** and **Codex**.
@@ -44,7 +44,7 @@ cd why-was-fable-banned && sh install.sh
   | `wfb off here` / `wfb on here` | this **session** only | this chat |
   | `wfb off all` / `wfb on all` | the whole **machine** | everywhere |
 
-  Most-specific wins (session > project > machine > default on), so you can turn the project off and force one hard session on. State is a file, so it survives reboots until you flip it back. `wfb status` shows all three. One-off env bypass: `FORGE_BYPASS=1`.
+  Most-specific wins (session > project > machine > default on), so you can turn the project off and force one hard session on. State is a file, so it survives reboots until you flip it back. `wfb status` shows all three. One-off env bypass: `WFB_BYPASS=1`.
 - **Status line**: when the gate is on, `[why-was-fable-banned]` shows in the Claude Code status line (installed only if you don't already have one; otherwise the installer prints how to add the segment)
 - **Works wherever Claude Code runs**: terminal, the VS Code and JetBrains extensions, desktop (they share the same hooks), plus Codex. It does not apply to non-Claude-Code/Codex agents (e.g. Cursor's own agent)
 
@@ -59,7 +59,7 @@ cd why-was-fable-banned && sh install.sh
 
 1. `sh install.sh`: wires the hooks at user level (every project + subagent inherits it)
 2. Prompt your agent to do real work: a gated task auto-starts
-3. The agent writes `.forge/spec.json` (it's told exactly what to fill); edits stay blocked until it passes
+3. The agent writes `.wfb/spec.json` (it's told exactly what to fill); edits stay blocked until it passes
 4. It implements, runs the acceptance commands, records evidence, then closes
 
 Grade auto-scales the depth: typos (LIGHT) require only a restated goal + one
@@ -82,8 +82,8 @@ chain-of-thought, local, secrets masked.
 
 | layer | checks | how |
 | --- | --- | --- |
-| `gates/forge_gate.py` | **form**: fields, real paths, forbidden, fail-closed | deterministic, free |
-| `gates/forge_judge.py` | **meaning**: 0–2 rubric, gaming detection | optional LLM judge |
+| `gates/wfb_gate.py` | **form**: fields, real paths, forbidden, fail-closed | deterministic, free |
+| `gates/wfb_judge.py` | **meaning**: 0–2 rubric, gaming detection | optional LLM judge |
 | `bench/` | **correctness**: hidden grader | runs the tests |
 
 </details>

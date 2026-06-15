@@ -1,4 +1,4 @@
-"""Shared helpers for fable-forge hooks — runtime-agnostic (Claude Code + Codex).
+"""Shared helpers for wfb hooks — runtime-agnostic (Claude Code + Codex).
 Both runtimes deliver a JSON stdin payload with tool_name/tool_input/cwd and accept
 exit code 2 (+ stderr) as a tool-call block. Stdlib only, fail-open."""
 from __future__ import annotations
@@ -10,8 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-# adapters/hooks/<file>.py -> adapters -> fable-forge -> gates/forge_gate.py
-GATE = Path(__file__).resolve().parents[2] / "gates" / "forge_gate.py"
+# adapters/hooks/<file>.py -> adapters -> wfb -> gates/wfb_gate.py
+GATE = Path(__file__).resolve().parents[2] / "gates" / "wfb_gate.py"
 
 # Claude Code edit tools + Codex's apply_patch (the tool_name Codex reports for edits).
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "create_file", "str_replace", "apply_patch"}
@@ -43,7 +43,7 @@ def run_gate(*args: str) -> tuple[int, str]:
                            capture_output=True, text=True, timeout=20)
         return p.returncode, (p.stdout or "") + (p.stderr or "")
     except Exception as exc:
-        return 0, f"forge gate skipped: {exc}"
+        return 0, f"wfb gate skipped: {exc}"
 
 
 def session_id(payload: dict) -> str:
@@ -84,7 +84,7 @@ def edited_paths(payload: dict) -> list[str]:
 
 def canon_path(p: str, root: str) -> str:
     """Resolved absolute path (follows symlinks, collapses ../ and ./) — substring checks
-    on '.forge/' are bypassable (e.g. '.forge/../src/a.py', '/other/.forge/...', a symlink),
+    on '.wfb/' are bypassable (e.g. '.wfb/../src/a.py', '/other/.wfb/...', a symlink),
     so all gate-state decisions canonicalize first."""
     base = p if os.path.isabs(p) else os.path.join(root, p)
     try:
@@ -93,20 +93,20 @@ def canon_path(p: str, root: str) -> str:
         return os.path.normpath(base)
 
 
-def under_forge(p: str, root: str) -> bool:
-    """True iff p canonically lives inside <root>/.forge (this project's gate state)."""
+def under_wfb(p: str, root: str) -> bool:
+    """True iff p canonically lives inside <root>/.wfb (this project's gate state)."""
     c = canon_path(p, root)
-    forge = canon_path(".forge", root)
-    return c == forge or c.startswith(forge + os.sep)
+    wfb = canon_path(".wfb", root)
+    return c == wfb or c.startswith(wfb + os.sep)
 
 
 def is_spec_authoring(p: str, root: str) -> bool:
-    """The ONE gate artifact a model may write — exactly <root>/.forge/spec.json."""
-    return canon_path(p, root) == canon_path(os.path.join(".forge", "spec.json"), root)
+    """The ONE gate artifact a model may write — exactly <root>/.wfb/spec.json."""
+    return canon_path(p, root) == canon_path(os.path.join(".wfb", "spec.json"), root)
 
 
 def edit_targets_blob(payload: dict) -> str:
     """A single string covering every path/command an edit references — used only
-    for the cheap `.forge/` self-authoring exemption."""
+    for the cheap `.wfb/` self-authoring exemption."""
     ti = payload.get("tool_input") or {}
     return " ".join(str(ti.get(k, "")) for k in ("file_path", "path", "notebook_path", "command"))

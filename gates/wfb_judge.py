@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""forge_judge — the SEMANTIC quality gate (the judge layer).
+"""wfb_judge — the SEMANTIC quality gate (the judge layer).
 
-The deterministic gate (forge_gate.py) checks FORM. This scores the spec's CONTENT
+The deterministic gate (wfb_gate.py) checks FORM. This scores the spec's CONTENT
 against rubric/SCORECARD.md (0-2 per dimension) with an LLM judge, catching what the
 gate cannot: trivial-but-runnable acceptance ('true'), generic rejected_alternatives,
 a restated_goal that only paraphrases. Off the hot path — for dev / corpus promotion.
 A cross-family judge (different model than the worker) is recommended to avoid bias.
 
-Usage: forge_judge.py --spec <spec.json> [--model gpt-5.5] [--threshold 1]
+Usage: wfb_judge.py --spec <spec.json> [--model gpt-5.5] [--threshold 1]
        prints per-dimension scores + verdict; exit 0 = pass, 1 = fail, 2 = error.
 """
 from __future__ import annotations
@@ -87,7 +87,7 @@ def parse_verdict(text: str) -> dict:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(prog="forge_judge")
+    ap = argparse.ArgumentParser(prog="wfb_judge")
     ap.add_argument("--spec", required=True)
     ap.add_argument("--model", default="gpt-5.5")
     ap.add_argument("--threshold", type=int, default=1)

@@ -8,10 +8,10 @@ and so an orchestrator's spawned workers all ride on top of the gate.
 
 | Tier | Mechanism | Strength | Status |
 |---|---|---|---|
-| **Worktree-accept (PRIMARY headless)** | `forge-codex-accept.sh`: run the worker in a **throwaway git worktree**, then apply its diff to the real repo **only if** the spec+done gate passes and it touched no `forbidden_paths` | **Total enforcement at the acceptance boundary** — the real repo never receives unspeced / forbidden work; structurally one codex invocation but measured >2× naked on STANDARD (spec + verification) | co-designed + cross-verified with the Codex CLI; mechanics tested (accept + reject paths) |
+| **Worktree-accept (PRIMARY headless)** | `wfb-codex-accept.sh`: run the worker in a **throwaway git worktree**, then apply its diff to the real repo **only if** the spec+done gate passes and it touched no `forbidden_paths` | **Total enforcement at the acceptance boundary** — the real repo never receives unspeced / forbidden work; structurally one codex invocation but measured >2× naked on STANDARD (spec + verification) | co-designed + cross-verified with the Codex CLI; mechanics tested (accept + reject paths) |
 | Native hooks | `[[hooks.PreToolUse]]` blocks `apply_patch` (exit 2) in one session | hard in-session **when it fires** | scripts proven by simulation; **does NOT fire in headless `codex exec`** — edits are native `file_change`, not `apply_patch` (see caveat) |
 | AGENTS.md | global `~/.codex/AGENTS.md` mandate | soft; reduces gate round-trips | done |
-| forge-codex wrapper | phase-gated multi-`codex exec` loop | hard but **~11–14×** (measured) | older fallback for non-git contexts |
+| wfb-codex wrapper | phase-gated multi-`codex exec` loop | hard but **~11–14×** (measured) | older fallback for non-git contexts |
 
 ### Worktree-accept — the answer to "can you enforce everything headless?"
 
@@ -21,10 +21,10 @@ unaccepted work never reaches the real repo:
 
 ```sh
 git -C $REPO worktree add --detach $WT $BASE     # disposable copy
-forge_gate scaffold --root $WT --goal "$TASK"
+wfb_gate scaffold --root $WT --goal "$TASK"
 codex exec -s workspace-write -C $WT "$TASK"      # ONE pass; writes spec + code in $WT
-git -C $WT diff --name-only $BASE > .forge/edits.txt   # real edit set (hooks don't fire)
-forge_gate validate --root $WT --gate done        # spec + evidence + forbidden_paths
+git -C $WT diff --name-only $BASE > .wfb/edits.txt   # real edit set (hooks don't fire)
+wfb_gate validate --root $WT --gate done        # spec + evidence + forbidden_paths
 # PASS -> git -C $REPO apply --index <$WT diff>     ;  FAIL -> discard $WT, repo untouched
 ```
 
@@ -42,7 +42,7 @@ mirrors Claude Code's on paper: same events, same exit-2 block protocol, so the
 **same `adapters/hooks/*.py` are wired for both** (matcher `apply_patch|Edit|Write`;
 an edit arrives as `tool_name:"apply_patch"` with the path inside
 `tool_input.command`). The shared hook **scripts** are verified by simulation
-(block on a real edit, allow `.forge/` authoring, log the patched path).
+(block on a real edit, allow `.wfb/` authoring, log the patched path).
 
 > **Honesty caveat (measured, ≥5 runs, incl. a Codex-CLI consult):** the PreToolUse
 > hook **does not fire in `codex exec --json`**. Tried: repo-local
@@ -70,7 +70,7 @@ claim made here.
 **In-session hooks only intercept edit tools, not shell writes.** The PreToolUse
 matcher gates `Edit|Write|MultiEdit|NotebookEdit|apply_patch`. A model that writes a
 file through the shell instead (`bash: echo ... > f`, `sed -i`, `tee`) is **not**
-intercepted in-session — that write skips the SPEC gate and the protected-`.forge`
+intercepted in-session — that write skips the SPEC gate and the protected-`.wfb`
 checks, and PostToolUse will not log it. So the in-session gate is **best-effort
 discipline**, not a hard sandbox. The hard guarantee is the **worktree-accept**
 boundary: it diffs the whole worktree with `git`, so it catches every change
@@ -79,11 +79,11 @@ diff to the real repo. Use worktree-accept (or a CI gate on the diff) when you n
 enforcement that a shell write cannot bypass.
 
 **Inside a worktree-accept run the worker is unrestricted**, so gate state it writes
-there (`.forge/GRADE`, `.forge/spec.lock`, `.forge/edits.txt`) is **not trusted** — a
+there (`.wfb/GRADE`, `.wfb/spec.lock`, `.wfb/edits.txt`) is **not trusted** — a
 gaming model could weaken it. The boundary that still holds is the **git diff**:
 worktree-accept derives the real edited-file set from `git diff` (not the model's log)
 and applies only a gate-passing, forbidden-clean diff. The in-session weakening guards
-(spec.lock, grade floor, protected-`.forge`) are defenses for the **interactive/Claude
+(spec.lock, grade floor, protected-`.wfb`) are defenses for the **interactive/Claude
 in-session** path where the hooks actually fire; for an adversarial model in headless
 exec, trust the diff-level check (and a human/CI diff review), not the in-worker state.
 
@@ -131,8 +131,8 @@ Resolved by driving the real binary:
 
 - `adapters/hooks/*.py` — the shared, runtime-agnostic hooks (the enforcement).
 - `install.sh` — merges native hooks into `~/.codex/hooks.json`, places the global
-  `AGENTS.md` mandate, and puts the `forge-codex` fallback on PATH. Idempotent.
+  `AGENTS.md` mandate, and puts the `wfb-codex` fallback on PATH. Idempotent.
 - `AGENTS.md` — global procedure mandate (soft tier; fewer gate round-trips).
-- `forge-codex.sh` — the fallback wrapper (no-hook environments; ~11–14×).
+- `wfb-codex.sh` — the fallback wrapper (no-hook environments; ~11–14×).
 - `spec.schema.json` — the spec contract (human/agent reference).
 - `execpolicy.rules.template` — legacy, superseded by native hooks.

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""fable-forge gate engine — self-contained, stdlib only, model-agnostic.
+"""wfb gate engine — self-contained, stdlib only, model-agnostic.
 
 Enforces the SPEC -> IMPLEMENT -> VERIFY procedure by validating a lightweight
-spec artifact (`.forge/spec.json`) under the project root. Runtime adapters
+spec artifact (`.wfb/spec.json`) under the project root. Runtime adapters
 (Claude Code hooks, Codex execpolicy/wrapper) call this and block on a non-zero
 exit. No dependency on fable-pack; nothing networked; secrets never read.
 
 Subcommands:
-  scaffold  --root R --goal G [--grade L]   create .forge/, ACTIVE marker, spec skeleton
+  scaffold  --root R --goal G [--grade L]   create .wfb/, ACTIVE marker, spec skeleton
   validate  --root R --gate spec|done       exit 0 pass / 1 fail; prints failures
   active    --root R                         exit 0 if a task is active, else 1
   status    --root R                         human-readable state
@@ -30,7 +30,7 @@ import re
 import sys
 from pathlib import Path
 
-FORGE_DIR = ".forge"
+WFB_DIR = ".wfb"
 SPEC_NAME = "spec.json"
 ACTIVE_NAME = "ACTIVE"
 
@@ -95,29 +95,29 @@ NONTRIVIAL_VERB_RE = re.compile(r"\b(implement\w*|rewrite|refactor\w*|integrat\w
 
 
 def spec_path(root: Path) -> Path:
-    return root / FORGE_DIR / SPEC_NAME
+    return root / WFB_DIR / SPEC_NAME
 
 
 def active_path(root: Path) -> Path:
-    return root / FORGE_DIR / ACTIVE_NAME
+    return root / WFB_DIR / ACTIVE_NAME
 
 
 # ----------------------------------------------------------- on/off state ----
 # The gate can be turned on/off at three scopes; the most specific set wins:
-#   session  (this conversation)      ->  <root>/.forge/sessions/<session_id>
-#   project  (this repo dir)          ->  <root>/.forge/STATE   (legacy: .forge/OFF)
-#   machine  (whole desktop)          ->  ~/.forge/STATE  (override dir: $FORGE_HOME)
+#   session  (this conversation)      ->  <root>/.wfb/sessions/<session_id>
+#   project  (this repo dir)          ->  <root>/.wfb/STATE   (legacy: .wfb/OFF)
+#   machine  (whole desktop)          ->  ~/.wfb/STATE  (override dir: $WFB_HOME)
 # Each STATE file holds "on" or "off"; absence = inherit the next scope; default ON.
 SCOPES = ("session", "project", "machine")
 
 
 def _machine_dir() -> Path:
-    # Must NOT be any project's <root>/.forge — else a Claude project opened at $HOME
-    # would make `forge off` (project) collide with machine state. Use the XDG config dir.
-    if os.environ.get("FORGE_HOME"):
-        return Path(os.environ["FORGE_HOME"])
+    # Must NOT be any project's <root>/.wfb — else a Claude project opened at $HOME
+    # would make `wfb off` (project) collide with machine state. Use the XDG config dir.
+    if os.environ.get("WFB_HOME"):
+        return Path(os.environ["WFB_HOME"])
     base = os.environ.get("XDG_CONFIG_HOME") or (Path.home() / ".config")
-    return Path(base) / "forge"
+    return Path(base) / "wfb"
 
 
 def _read_state(p: Path):
@@ -139,14 +139,14 @@ def _safe_sid(sid) -> str:
 
 
 def _session_state_path(root, sid) -> Path:
-    return Path(root) / FORGE_DIR / "sessions" / _safe_sid(sid)
+    return Path(root) / WFB_DIR / "sessions" / _safe_sid(sid)
 
 
 def _scope_states(root, sid):
     """(session, project, machine) raw state, each 'on' / 'off' / None (inherit)."""
     sess = _read_state(_session_state_path(root, sid)) if sid else None
-    proj = _read_state(Path(root) / FORGE_DIR / "STATE")
-    if proj is None and (Path(root) / FORGE_DIR / "OFF").exists():
+    proj = _read_state(Path(root) / WFB_DIR / "STATE")
+    if proj is None and (Path(root) / WFB_DIR / "OFF").exists():
         proj = "off"  # back-compat with the old binary OFF marker
     mach = _read_state(_machine_dir() / "STATE")
     return sess, proj, mach
@@ -198,13 +198,13 @@ def _is_placeholder_risk(text) -> bool:
 
 
 def _forbidden_hits(spec: dict, root) -> list:
-    """Edits (recorded by the PostToolUse hook in .forge/edits.txt) that match a
+    """Edits (recorded by the PostToolUse hook in .wfb/edits.txt) that match a
     forbidden_paths glob — i.e. the implementation touched an architecture/policy
     boundary the spec declared off-limits. Verifies no-conflict, not just declares."""
     pats = [p for p in spec.get("forbidden_paths", []) if isinstance(p, str) and p.strip()]
     if not pats or root is None:
         return []
-    log = Path(root) / FORGE_DIR / "edits.txt"
+    log = Path(root) / WFB_DIR / "edits.txt"
     if not log.exists():
         return []
     try:
@@ -246,15 +246,15 @@ def _canon_edit(p, root) -> str:
 
 
 def _edited_files(root, pending=None) -> set:
-    """Distinct, canonicalized, non-.forge files touched so far (from edits.txt) plus any
+    """Distinct, canonicalized, non-.wfb files touched so far (from edits.txt) plus any
     `pending` targets of the edit currently being evaluated — so escalation is decided
     BEFORE the spreading edit is authorized, not backfilled afterwards."""
     if root is None:
         return set()
-    forge = str((Path(root) / FORGE_DIR).resolve())
+    wfb = str((Path(root) / WFB_DIR).resolve())
     out = set()
     raw = []
-    log = Path(root) / FORGE_DIR / "edits.txt"
+    log = Path(root) / WFB_DIR / "edits.txt"
     if log.exists():
         try:
             raw += [ln.strip() for ln in log.read_text(encoding="utf-8").splitlines() if ln.strip()]
@@ -263,8 +263,8 @@ def _edited_files(root, pending=None) -> set:
     raw += [str(p).strip() for p in (pending or []) if str(p).strip()]
     for ln in raw:
         c = _canon_edit(ln, root)
-        if c == forge or c.startswith(forge + os.sep):
-            continue  # never count .forge/ self-authoring
+        if c == wfb or c.startswith(wfb + os.sep):
+            continue  # never count .wfb/ self-authoring
         out.add(c)
     return out
 
@@ -279,7 +279,7 @@ def _good_acceptance(spec) -> int:
 
 
 def _spec_lock_path(root) -> Path:
-    return Path(root) / FORGE_DIR / "spec.lock"
+    return Path(root) / WFB_DIR / "spec.lock"
 
 
 def _acc_identity(spec: dict) -> set:
@@ -372,14 +372,14 @@ def _touches_heavy_path(root, pending=None) -> bool:
 
 
 def _effective_grade(spec: dict, root, pending=None) -> str:
-    """Grade drives enforcement depth. Base is the scaffold-written `.forge/GRADE`
+    """Grade drives enforcement depth. Base is the scaffold-written `.wfb/GRADE`
     (authoritative — a model cannot downgrade in spec.json to skip checks). It is then
     escalated UP (never down) by RUNTIME signals: a change that spreads across >=2 files
     is no longer trivial, so a LIGHT task earns the STANDARD decision spec. This is the
     dynamic lever — simple one-file fixes stay LIGHT (cheap), spreading changes pay more."""
     base = None
     if root is not None:
-        gf = Path(root) / FORGE_DIR / "GRADE"
+        gf = Path(root) / WFB_DIR / "GRADE"
         if gf.exists():
             try:
                 g = gf.read_text(encoding="utf-8").strip().upper()
@@ -391,7 +391,7 @@ def _effective_grade(spec: dict, root, pending=None) -> str:
         # No valid GRADE lock. If a task is ACTIVE, the lock was tampered/lost — fail
         # closed at HEAVY (the strictest), since the original could have been HEAVY and we
         # must not silently downgrade a lost lock.
-        if root is not None and (Path(root) / FORGE_DIR / ACTIVE_NAME).exists():
+        if root is not None and (Path(root) / WFB_DIR / ACTIVE_NAME).exists():
             base = "HEAVY"
         else:
             base = (spec.get("grade") or "LIGHT").upper()
@@ -584,7 +584,7 @@ def _contract_text(grade: str) -> str:
                  f"severity in {sorted(SEVERITIES)}.")
     head = [
         f"[wfb] GATE CONTRACT (grade {grade}). Edits are HARD-BLOCKED until "
-        ".forge/spec.json passes the SPEC gate. Fill the spec COMPLETELY in ONE edit, then "
+        ".wfb/spec.json passes the SPEC gate. Fill the spec COMPLETELY in ONE edit, then "
         "self-check once with `validate --gate spec`, then implement. Do NOT probe with a "
         "throwaway edit first — it is blocked and costs a wasted round. Required fields:",
         "- restated_goal: intent + constraint envelope; MUST differ from raw_goal (copying the ask = under-interpreted = blocked).",
@@ -628,7 +628,7 @@ def cmd_contract(args) -> int:
 
 def cmd_scaffold(args) -> int:
     root = Path(args.root).resolve()
-    fdir = root / FORGE_DIR
+    fdir = root / WFB_DIR
     fdir.mkdir(parents=True, exist_ok=True)
     fresh = not active_path(root).exists()  # no active task => this scaffold starts a new one
     grade = (args.grade or _grade_for(args.goal or "")).upper()
@@ -664,7 +664,7 @@ def cmd_scaffold(args) -> int:
                 if stale.exists():
                     stale.unlink()  # a new task must not inherit prior edits / spec lock
     active_path(root).write_text(args.goal or "", encoding="utf-8")
-    print(f"forge: task active at {fdir} (grade {grade})")
+    print(f"wfb: task active at {fdir} (grade {grade})")
     return 0
 
 
@@ -694,12 +694,12 @@ def cmd_validate(args) -> int:
     root = Path(args.root).resolve()
     spec, err = load_spec(root)
     if err:
-        print(f"forge {args.gate} gate: BLOCKED\n  - {err}", file=sys.stderr)
+        print(f"wfb {args.gate} gate: BLOCKED\n  - {err}", file=sys.stderr)
         return 1
-    # pending edit targets come via env (FORGE_PENDING json), never argv, so a path can't
+    # pending edit targets come via env (WFB_PENDING json), never argv, so a path can't
     # inject gate flags.
     pending = None
-    pj = os.environ.get("FORGE_PENDING")
+    pj = os.environ.get("WFB_PENDING")
     if pj:
         try:
             v = json.loads(pj)
@@ -709,13 +709,13 @@ def cmd_validate(args) -> int:
             pending = None
     errs = gate_spec(spec, root, pending) if args.gate == "spec" else gate_done(spec, root, pending)
     if errs:
-        print(f"forge {args.gate} gate: BLOCKED ({len(errs)} unmet)", file=sys.stderr)
+        print(f"wfb {args.gate} gate: BLOCKED ({len(errs)} unmet)", file=sys.stderr)
         for x in errs:
             print(f"  - {x}", file=sys.stderr)
         return 1
     if args.gate == "spec":
         _write_spec_lock(spec, root)  # freeze the approved promises against later weakening
-    print(f"forge {args.gate} gate: PASS")
+    print(f"wfb {args.gate} gate: PASS")
     return 0
 
 
@@ -726,14 +726,14 @@ def cmd_active(args) -> int:
 def cmd_status(args) -> int:
     root = Path(args.root).resolve()
     if not active_path(root).exists():
-        print("forge: no active task")
+        print("wfb: no active task")
         return 0
     spec, err = load_spec(root)
     if err:
-        print(f"forge: active task, spec error: {err}")
+        print(f"wfb: active task, spec error: {err}")
         return 0
     se = gate_spec(spec, root)
-    print(f"forge: active | grade {spec.get('grade')} | phase {spec.get('phase')} | "
+    print(f"wfb: active | grade {spec.get('grade')} | phase {spec.get('phase')} | "
           f"spec gate {'PASS' if not se else f'BLOCKED ({len(se)})'}")
     return 0
 
@@ -742,26 +742,26 @@ def cmd_close(args) -> int:
     root = Path(args.root).resolve()
     spec, err = load_spec(root)
     if err:
-        print(f"forge: cannot close — {err}", file=sys.stderr)
+        print(f"wfb: cannot close — {err}", file=sys.stderr)
         return 1
     de = gate_done(spec, root)
     if de:
-        forced = args.force and os.environ.get("FORGE_BYPASS") == "1"
+        forced = args.force and os.environ.get("WFB_BYPASS") == "1"
         if not forced:
-            print(f"forge: done gate BLOCKED ({len(de)}) — not closing:", file=sys.stderr)
+            print(f"wfb: done gate BLOCKED ({len(de)}) — not closing:", file=sys.stderr)
             for x in de:
                 print(f"  - {x}", file=sys.stderr)
             if args.force:
-                print("  (refusing --force without FORGE_BYPASS=1 — forcing is an audited bypass)", file=sys.stderr)
+                print("  (refusing --force without WFB_BYPASS=1 — forcing is an audited bypass)", file=sys.stderr)
             return 1
-        print(f"forge: FORCED close past {len(de)} unmet done-gate item(s) via FORGE_BYPASS.", file=sys.stderr)
+        print(f"wfb: FORCED close past {len(de)} unmet done-gate item(s) via WFB_BYPASS.", file=sys.stderr)
     # Clear per-task state so the NEXT task starts clean (no stale grade lock / edit log
     # leaking into it). Keep spec.json as the audit record of what was just closed.
-    for f in (active_path(root), root / FORGE_DIR / "GRADE",
-              root / FORGE_DIR / "edits.txt", _spec_lock_path(root)):
+    for f in (active_path(root), root / WFB_DIR / "GRADE",
+              root / WFB_DIR / "edits.txt", _spec_lock_path(root)):
         if f.exists():
             f.unlink()
-    print("forge: task closed")
+    print("wfb: task closed")
     return 0
 
 
@@ -769,7 +769,7 @@ def cmd_toggle(args) -> int:
     root = Path(args.root).resolve()
     val = (args.set or "").lower()
     if val not in ("on", "off"):
-        print("forge: --set must be on|off", file=sys.stderr)
+        print("wfb: --set must be on|off", file=sys.stderr)
         return 2
     scope = args.scope
     if scope == "machine":
@@ -777,17 +777,17 @@ def cmd_toggle(args) -> int:
         (d / "STATE").write_text(val, encoding="utf-8")
     elif scope == "session":
         if not args.sid:
-            print("forge: session scope needs --sid (no session id available)", file=sys.stderr)
+            print("wfb: session scope needs --sid (no session id available)", file=sys.stderr)
             return 2
         p = _session_state_path(root, args.sid); p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(val, encoding="utf-8")
     else:  # project
-        d = root / FORGE_DIR; d.mkdir(parents=True, exist_ok=True)
+        d = root / WFB_DIR; d.mkdir(parents=True, exist_ok=True)
         (d / "STATE").write_text(val, encoding="utf-8")
         leg = d / "OFF"
         if leg.exists():
             leg.unlink()  # migrate the legacy binary marker into STATE
-    print(f"forge: {scope} set {val} | effective now {effective_state(root, args.sid)}")
+    print(f"wfb: {scope} set {val} | effective now {effective_state(root, args.sid)}")
     return 0
 
 
@@ -811,7 +811,7 @@ def cmd_classify(args) -> int:
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="forge_gate")
+    p = argparse.ArgumentParser(prog="wfb_gate")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sc = sub.add_parser("scaffold"); sc.add_argument("--root", required=True)
@@ -845,7 +845,7 @@ def main(argv=None) -> int:
         # its own crash guard so a gate bug can't brick the tool pipeline.
         fail_closed = getattr(args, "cmd", "") in ("validate", "close")
         kind = "failing closed" if fail_closed else "failing open"
-        print(f"forge_gate internal error ({kind}): {exc}", file=sys.stderr)
+        print(f"wfb_gate internal error ({kind}): {exc}", file=sys.stderr)
         return 1 if fail_closed else 0
 
 
