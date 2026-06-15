@@ -54,7 +54,7 @@ def _parse_toggle(prompt: str):
 # first-try-passing spec, instead of discovering each rule by getting blocked (each such
 # round burns a turn + re-reads the growing context). Single source of truth = no drift.
 NOTICE_FALLBACK = (
-    "[fable-forge] A gated task is active. Write .forge/spec.json COMPLETELY in one edit "
+    "[wfb] A gated task is active. Write .forge/spec.json COMPLETELY in one edit "
     "(restated_goal that differs from the ask, non_goals, must_read with real paths, >=2 "
     "rejected_alternatives, risks, constraints.invariant, runnable acceptance_criteria), "
     "self-check with the spec gate, then implement. Edits are blocked until it passes. "
@@ -84,18 +84,18 @@ def main() -> int:
     if tg:
         verb, scope = tg
         if verb == "invalid":
-            emit_block(f"fable-forge: unknown scope '{scope}'. Use none/project (this dir), "
+            emit_block(f"wfb: unknown scope '{scope}'. Use none/project (this dir), "
                        "here (this chat), or all (whole machine).")
             return 0
         if verb == "status":
-            emit_block("fable-forge: " + run_gate("state", "--root", root, "--sid", sid, "--verbose")[1].strip())
+            emit_block("wfb: " + run_gate("state", "--root", root, "--sid", sid, "--verbose")[1].strip())
             return 0
         if scope == "session" and not sid:
-            emit_block("fable-forge: no session id available here — use 'forge "
+            emit_block("wfb: no session id available here — use 'forge "
                        f"{verb} project' (this dir) or 'forge {verb} all' (whole machine).")
             return 0
         run_gate("toggle", "--root", root, "--scope", scope, "--set", verb, "--sid", sid)
-        emit_block(f"fable-forge: gate {verb.upper()} [{scope}]. "
+        emit_block(f"wfb: gate {verb.upper()} [{scope}]. "
                    + run_gate("state", "--root", root, "--sid", sid, "--verbose")[1].strip())
         return 0
 
@@ -115,7 +115,7 @@ def main() -> int:
     # Only inject output that is actually the contract; otherwise fall back (never feed a
     # stray error string to the model as if it were instructions).
     contract = run_gate("contract", "--root", root)[1].strip()
-    emit_context(contract if contract.startswith("[fable-forge] GATE CONTRACT") else NOTICE_FALLBACK)
+    emit_context(contract if contract.startswith("[wfb] GATE CONTRACT") else NOTICE_FALLBACK)
     return 0
 
 
@@ -125,5 +125,5 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except Exception as exc:
-        sys.stderr.write(f"fable-forge user_prompt_submit error (failing open): {exc}\n")
+        sys.stderr.write(f"wfb user_prompt_submit error (failing open): {exc}\n")
         raise SystemExit(0)

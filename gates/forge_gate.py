@@ -583,7 +583,7 @@ def _contract_text(grade: str) -> str:
         enums = (f"strict enums — verify.type in {sorted(ACC_TYPES)}; "
                  f"severity in {sorted(SEVERITIES)}.")
     head = [
-        f"[fable-forge] GATE CONTRACT (grade {grade}). Edits are HARD-BLOCKED until "
+        f"[wfb] GATE CONTRACT (grade {grade}). Edits are HARD-BLOCKED until "
         ".forge/spec.json passes the SPEC gate. Fill the spec COMPLETELY in ONE edit, then "
         "self-check once with `validate --gate spec`, then implement. Do NOT probe with a "
         "throwaway edit first — it is blocked and costs a wasted round. Required fields:",

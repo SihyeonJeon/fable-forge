@@ -47,7 +47,7 @@ def main() -> int:
     if paths:
         if any(_is_protected_state(p, root) for p in paths):
             sys.stderr.write(
-                "fable-forge: editing gate state (.forge/GRADE | ACTIVE | edits.txt | "
+                "wfb: editing gate state (.forge/GRADE | ACTIVE | edits.txt | "
                 "STATE | sessions) is not allowed — it would let an active task downgrade "
                 "its own enforcement. Author .forge/spec.json only.\n")
             return 2
@@ -56,7 +56,7 @@ def main() -> int:
             # A single patch that edits spec.json AND implementation files would be validated
             # against the OLD on-disk spec, letting it soften the spec and land code at once.
             sys.stderr.write(
-                "fable-forge: do not edit .forge/spec.json and implementation files in the "
+                "wfb: do not edit .forge/spec.json and implementation files in the "
                 "same change — write the spec in its own tool call, let the gate validate it, "
                 "then edit code separately.\n")
             return 2
@@ -78,7 +78,7 @@ def main() -> int:
     rc, out = run_gate("validate", "--root", root, "--gate", "spec")
     if rc != 0:
         sys.stderr.write(
-            "fable-forge: implementation blocked — SPEC gate not satisfied.\n"
+            "wfb: implementation blocked — SPEC gate not satisfied.\n"
             "Author .forge/spec.json per the engineering procedure (restated_goal, "
             "non_goals, must_read, >=2 rejected_alternatives, >=1 invariant, risks, "
             "acceptance_criteria), then retry the edit.\n\n" + out.strip() + "\n"
@@ -93,5 +93,5 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except Exception as exc:
-        sys.stderr.write(f"fable-forge pre_tool_use error (failing open): {exc}\n")
+        sys.stderr.write(f"wfb pre_tool_use error (failing open): {exc}\n")
         raise SystemExit(0)

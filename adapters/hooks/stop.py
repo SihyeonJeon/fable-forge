@@ -21,7 +21,7 @@ def main() -> int:
     rc, out = run_gate("validate", "--root", root, "--gate", "done")
     if rc != 0:
         sys.stderr.write(
-            "fable-forge: task still open — done gate unmet. Run each acceptance "
+            "wfb: task still open — done gate unmet. Run each acceptance "
             "criterion, record live evidence, then close the task (fail closed).\n"
             + out.strip() + "\n"
         )
@@ -34,5 +34,5 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except Exception as exc:
-        sys.stderr.write(f"fable-forge stop error (failing open): {exc}\n")
+        sys.stderr.write(f"wfb stop error (failing open): {exc}\n")
         raise SystemExit(0)

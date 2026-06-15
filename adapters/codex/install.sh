@@ -77,11 +77,11 @@ else
 fi
 
 if [ "$MODE" = "install" ]; then
-  echo "fable-forge (Codex): installed."
+  echo "wfb (Codex): installed."
   echo "  PRIMARY headless: $BIN_DIR/forge-codex-accept \"<goal>\" --repo <dir>  (worktree-accept)."
   echo "  in-session: native hooks in $HOOKS_JSON (when they fire — TRUST via 'codex' then '/hooks',"
   echo "    or for automation pass 'codex exec --dangerously-bypass-hook-trust ...')."
   echo "  mandate: $GLOBAL_AGENTS   multi-pass wrapper fallback: $BIN_DIR/forge-codex"
 else
-  echo "fable-forge (Codex): removed (hooks, AGENTS block, PATH shims)."
+  echo "wfb (Codex): removed (hooks, AGENTS block, PATH shims)."
 fi

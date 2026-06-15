@@ -30,7 +30,7 @@ if [ "$SCOPE" = "project" ]; then export CLAUDE_SETTINGS="$PWD/.claude/settings.
 cc(){ bash "$HERE/adapters/claude-code/install.sh" $UNINSTALL; }
 cx(){ bash "$HERE/adapters/codex/install.sh" $UNINSTALL; }
 
-if ! have python3; then echo "fable-forge: python3 is required (the gate engine is stdlib python3)."; exit 1; fi
+if ! have python3; then echo "wfb: python3 is required (the gate engine is stdlib python3)."; exit 1; fi
 
 case "$TARGET" in
   claude-code) cc ;;
@@ -41,7 +41,7 @@ case "$TARGET" in
     if [ -d "$HOME/.claude" ] || have claude; then cc; did=1; fi
     if have codex; then cx; did=1; fi
     if [ "$did" = 0 ]; then
-      echo "fable-forge: no Claude Code (~/.claude) or codex CLI detected."
+      echo "wfb: no Claude Code (~/.claude) or codex CLI detected."
       echo "  install explicitly:  sh install.sh claude-code   |   sh install.sh codex"
       exit 1
     fi ;;
@@ -50,7 +50,7 @@ esac
 
 if [ -z "$UNINSTALL" ]; then
   echo
-  echo "fable-forge installed (scope: $SCOPE). Work-shaped prompts auto-start a gated task;"
+  echo "wfb installed (scope: $SCOPE). Work-shaped prompts auto-start a gated task;"
   echo "edits are blocked until .forge/spec.json passes the gate."
   if [ "$SCOPE" = "project" ]; then echo "  active only in: $PWD"; else echo "  active in every Claude Code project on this machine"; fi
   echo "  toggle in-session:  forge off  /  forge on  /  forge status"

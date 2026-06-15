@@ -85,7 +85,7 @@ with open(path, "w", encoding="utf-8") as f:
     json.dump(cfg, f, indent=2, ensure_ascii=False)
     f.write("\n")
 
-print(f"fable-forge: {mode} complete -> {path}")
+print(f"wfb: {mode} complete -> {path}")
 print("  events:", ", ".join(k for k in ("UserPromptSubmit","PreToolUse","PostToolUse","Stop") if k in hooks))
 if mode == "install":
     if sl_note in ("added", "present"):
@@ -96,11 +96,11 @@ if mode == "install":
 PY
 
 if [ "$MODE" = "install" ]; then
-  echo "fable-forge: active for all Claude Code sessions. Toggle in-session by typing:"
+  echo "wfb: active for all Claude Code sessions. Toggle in-session by typing:"
   echo "             forge off            (this dir)        forge on / forge status"
   echo "             forge off here       (this chat only)  forge on here"
   echo "             forge off all        (whole machine)   forge on all"
   echo "             one-off env bypass:  FORGE_BYPASS=1"
 else
-  echo "fable-forge: removed."
+  echo "wfb: removed."
 fi

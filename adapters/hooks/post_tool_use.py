@@ -48,5 +48,5 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except Exception as exc:
-        sys.stderr.write(f"fable-forge post_tool_use error (failing open): {exc}\n")
+        sys.stderr.write(f"wfb post_tool_use error (failing open): {exc}\n")
         raise SystemExit(0)
