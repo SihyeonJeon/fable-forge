@@ -266,9 +266,39 @@ class Classify(unittest.TestCase):
         self.assertEqual(fg.cmd_classify(type("A", (), {"text": "이거 어떻게 동작하나요?"})), 1)
 
     def test_grade_for(self):
+        # HEAVY: blast-radius / security / data / migration
         self.assertEqual(fg._grade_for("fix payment auth token"), "HEAVY")
+        self.assertEqual(fg._grade_for("migrate the user table schema"), "HEAVY")
+        # LIGHT: only explicitly-trivial work
         self.assertEqual(fg._grade_for("fix a typo in the comment"), "LIGHT")
-        self.assertEqual(fg._grade_for("add a sort function"), "LIGHT")  # default LIGHT now
+        self.assertEqual(fg._grade_for("rename the variable"), "LIGHT")
+        # STANDARD: real engineering difficulty, and unknown active work (NOT cheap LIGHT)
+        self.assertEqual(fg._grade_for("fix the race condition in the scheduler"), "STANDARD")
+        self.assertEqual(fg._grade_for("implement an LRU cache"), "STANDARD")
+        self.assertEqual(fg._grade_for("add a sort function"), "STANDARD")
+
+    def test_grade_for_precision(self):
+        # explicit-trivial wins over ambiguous noun-verbs
+        self.assertEqual(fg._grade_for("fix a typo in the build script"), "LIGHT")
+        self.assertEqual(fg._grade_for("fix wording on the Create button"), "LIGHT")
+        # bare delete / token are no longer wrongly HEAVY
+        self.assertEqual(fg._grade_for("delete unused import"), "STANDARD")
+        self.assertEqual(fg._grade_for("optimize token budget"), "STANDARD")
+        # auth synonyms ARE heavy
+        for t in ("rename the OAuth provider", "add JWT validation", "add authentication"):
+            self.assertEqual(fg._grade_for(t), "HEAVY", t)
+
+    def test_heavy_path_segment_precision(self):
+        def grade(rel):
+            d = Path(tempfile.mkdtemp()); (d / ".forge").mkdir(); (d / ".forge" / "GRADE").write_text("LIGHT")
+            (d / ".forge" / "edits.txt").write_text(f"{d}/{rel}\n", encoding="utf-8")
+            return fg._effective_grade({}, d)
+        # compound dir names / lookalike files are NOT heavy
+        self.assertEqual(grade("payment-app/utils.py"), "LIGHT")
+        self.assertEqual(grade("immigration_notes.md"), "LIGHT")
+        # real auth/migration/sql files ARE heavy
+        for rel in ("db/migrations/0003.py", "app/auth/login.py", "src/oauth/p.py", "q.sql"):
+            self.assertEqual(grade(rel), "HEAVY", rel)
 
     def test_effective_grade_escalates_on_multifile(self):
         d = Path(tempfile.mkdtemp())
@@ -361,6 +391,15 @@ class DynamicGrade(unittest.TestCase):
         self.assertFalse((d / ".forge" / "GRADE").exists())
         self.assertFalse((d / ".forge" / "edits.txt").exists())
         self.assertFalse((d / ".forge" / "ACTIVE").exists())
+
+    def test_heavy_path_escalates_to_heavy(self):
+        d = Path(tempfile.mkdtemp()); (d / ".forge").mkdir()
+        (d / ".forge" / "GRADE").write_text("LIGHT")
+        (d / ".forge" / "edits.txt").write_text("db/migrations/0003_add.py\n", encoding="utf-8")
+        self.assertEqual(fg._effective_grade({}, d), "HEAVY")  # touching a migration => HEAVY
+        # a pending edit to an auth file also escalates before it lands
+        d2 = Path(tempfile.mkdtemp()); (d2 / ".forge").mkdir(); (d2 / ".forge" / "GRADE").write_text("LIGHT")
+        self.assertEqual(fg._effective_grade({}, d2, pending=[str(d2 / "app/auth/login.py")]), "HEAVY")
 
     def test_pending_escalates_before_edit_lands(self):
         d = Path(tempfile.mkdtemp())

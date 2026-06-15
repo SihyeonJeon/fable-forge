@@ -65,16 +65,33 @@ SPEC_TEMPLATE = {
 
 # Work-shaped prompt heuristic (English + Korean). Questions / chatter do not gate.
 WORK_RE = re.compile(
-    r"\b(implement|fix|refactor|add|build|create|write|change|update|migrat|"
-    r"remove|delete|rename|optimi|debug|patch|integrat|wire|hook up|set up)\b",
+    r"\b(implement|fix|refactor|add|build|create|write|change|update|migrat\w*|"
+    r"remove|delete|rename|optimi\w*|debug|patch|integrat\w*|wire|hook up|set up)\b",
     re.I,
 )
 WORK_KO = ("구현", "수정", "고쳐", "고치", "추가", "만들", "리팩", "변경", "바꿔",
            "바꾸", "삭제", "지워", "통합", "연결", "배선", "최적화", "패치")
 QUESTION_KO_ENDINGS = ("나요", "까요", "가요", "은가", "는가", "ㄴ가", "?", "？")
-HEAVY_RE = re.compile(r"\b(auth|payment|migrat|security|crypto|password|secret|"
-                      r"billing|token|permission|delete)\b", re.I)
-HEAVY_KO = ("보안", "결제", "인증", "마이그", "비밀번호", "권한", "토큰", "과금")
+HEAVY_RE = re.compile(
+    r"\b(auth|authn|authz|authenticat\w*|authoriz\w*|authoris\w*|oauth|openid|sso|jwt|"
+    r"payment\w*|migrat\w*|schema|backfill|security|crypto|password\w*|secrets?|"
+    r"credential\w*|billing|permission\w*|destructive|distributed|cross.?process|"
+    r"deadlock|vulnerab\w*|exploit|xss|ssrf|csrf|sanitiz\w*|sanitis\w*|sql\s+injection)\b"
+    r"|\b(?:drop|delete|truncate|purge)\s+(?:the\s+|all\s+|old\s+|stale\s+)*"
+    r"(?:records?|rows?|users?|data|accounts?|tables?)\b", re.I)
+HEAVY_KO = ("보안", "결제", "인증", "마이그", "비밀번호", "권한", "과금", "스키마", "분산")
+# Real engineering difficulty/risk that needs the STANDARD decision spec even with no
+# HEAVY keyword (concurrency, correctness-critical, algorithmic).
+STANDARD_RE = re.compile(
+    r"\b(race|lock(?:ing|ed|s)?|thread\w*|async\w*|asynchron\w*|concurren\w*|atomic|"
+    r"scheduler|cache|eviction|planner|parser|algorithm\w*|invariant|correctness|"
+    r"optimi\w*|performance|state[-\s]?machine|retry|idempoten\w*)\b", re.I)
+STANDARD_KO = ("동시성", "락", "스레드", "비동기", "경쟁", "캐시", "알고리즘", "불변", "성능", "정확성")
+# Strong non-trivial verbs (building/reshaping real behaviour => STANDARD). Ambiguous
+# noun-verbs (build/create/design) are NOT here — they fall to the default and let an
+# explicit LIGHT keyword win (e.g. "fix wording on Create button").
+NONTRIVIAL_VERB_RE = re.compile(r"\b(implement\w*|rewrite|refactor\w*|integrat\w*|"
+                                r"optimi\w*|redesign)\b", re.I)
 
 
 def spec_path(root: Path) -> Path:
@@ -328,6 +345,32 @@ def _spec_weakened(spec: dict, root) -> list:
     return e
 
 
+# Match path SEGMENTS / filenames (not unbounded substrings) on the ROOT-RELATIVE path, so
+# a repo dir like 'payment-app/' or a file like 'immigration_notes.md' / 'passwordless.css'
+# doesn't make every edit HEAVY, while real auth/migration/secret files do.
+HEAVY_PATH_RE = re.compile(
+    r"(^|/)(migrations?|auth|authn|authz|authenticat\w*|authoriz\w*|oauth|sso|jwt|security|"
+    r"secrets?|credentials?|sessions?|billing|payments?|permissions?|schema)([/._]|$)"
+    r"|(^|/)tokens?([/.]|$)"                                   # token(s) as a full segment/file
+    r"|(?:access|refresh|auth|api|bearer|csrf|id|session)[-_]tokens?"  # credential-shaped token
+    r"|\.sql(\.\w+)?$", re.I)
+
+
+def _touches_heavy_path(root, pending=None) -> bool:
+    """A change that actually touches an auth/migration/schema/secret file earns HEAVY at
+    runtime regardless of the prompt wording. Matched on root-relative POSIX paths."""
+    try:
+        rootres = str(Path(root).resolve()) if root is not None else ""
+    except Exception:
+        rootres = ""
+    for f in _edited_files(root, pending):
+        rel = os.path.relpath(f, rootres) if rootres else f
+        rel = rel.replace(os.sep, "/")
+        if HEAVY_PATH_RE.search(rel):
+            return True
+    return False
+
+
 def _effective_grade(spec: dict, root, pending=None) -> str:
     """Grade drives enforcement depth. Base is the scaffold-written `.forge/GRADE`
     (authoritative — a model cannot downgrade in spec.json to skip checks). It is then
@@ -357,6 +400,8 @@ def _effective_grade(spec: dict, root, pending=None) -> str:
     rank = GRADE_RANK[base]
     if _edited_file_count(root, pending) >= 2:
         rank = max(rank, GRADE_RANK["STANDARD"])  # multi-file (incl. pending) => >= STANDARD
+    if _touches_heavy_path(root, pending):
+        rank = max(rank, GRADE_RANK["HEAVY"])      # auth/migration/schema/secret => HEAVY
     return next(g for g, r in GRADE_RANK.items() if r == rank)
 
 
@@ -623,8 +668,8 @@ def cmd_scaffold(args) -> int:
     return 0
 
 
-LIGHT_RE = re.compile(r"\b(typo|comment|rename|format|lint|bump|tweak|whitespace|"
-                      r"docstring|wording|copy(?:edit)?)\b", re.I)
+LIGHT_RE = re.compile(r"\b(typo|comment|rename|reformat|lint|whitespace|indentation|"
+                      r"docstring|wording|copy(?:edit)?)\b", re.I)  # dropped tweak/bump/bare-format
 LIGHT_KO = ("오타", "주석", "포맷", "줄바꿈", "띄어쓰기", "문구", "오탈자")
 
 
@@ -637,7 +682,12 @@ def _grade_for(text: str) -> str:
     real, spreading changes pay for the full decision spec."""
     if HEAVY_RE.search(text) or any(k in text for k in HEAVY_KO):
         return "HEAVY"
-    return "LIGHT"
+    if (STANDARD_RE.search(text) or NONTRIVIAL_VERB_RE.search(text)
+            or any(k in text for k in STANDARD_KO)):
+        return "STANDARD"
+    if LIGHT_RE.search(text) or any(k in text for k in LIGHT_KO):
+        return "LIGHT"  # only explicitly-small work (typo/comment/format/docstring/rename)
+    return "STANDARD"  # unknown active work defaults to STANDARD, never cheap LIGHT
 
 
 def cmd_validate(args) -> int:
