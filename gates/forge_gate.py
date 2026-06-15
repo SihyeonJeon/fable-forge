@@ -194,38 +194,182 @@ def _forbidden_hits(spec: dict, root) -> list:
         edited = [ln.strip() for ln in log.read_text(encoding="utf-8").splitlines() if ln.strip()]
     except Exception:
         return []
+    rootres = str(Path(root).resolve())
     hits = []
     for ed in edited:
+        # Canonical, root-relative form so an absolute log entry or a symlink alias can't
+        # edit a forbidden file without matching its forbidden_paths glob.
+        try:
+            ap = ed if os.path.isabs(ed) else os.path.join(rootres, ed)
+            rel = os.path.relpath(os.path.realpath(ap), rootres)
+        except Exception:
+            rel = ed
         for pat in pats:
-            if fnmatch.fnmatch(ed, pat) or (pat.strip("*/ ") and pat.strip("*/ ") in ed):
+            key = pat.strip("*/ ")
+            if (fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(ed, pat)
+                    or (key and (key in rel or key in ed))):
                 hits.append((ed, pat))
                 break
     return hits
 
 
-def _effective_grade(spec: dict, root) -> str:
-    """Grade drives enforcement depth. Read it from the scaffold-written
-    `.forge/GRADE` (authoritative) so a model cannot silently downgrade in spec.json
-    to skip checks. Falls back to spec.grade only when no GRADE file exists."""
+GRADE_RANK = {"LIGHT": 0, "STANDARD": 1, "HEAVY": 2}
+
+
+def _canon_edit(p, root) -> str:
+    """Canonical absolute path for a logged/pending edit target, so 'a.py', './a.py'
+    and '/root/a.py' collapse to one entry (no false multi-file counts)."""
+    try:
+        pp = Path(p)
+        if not pp.is_absolute():
+            pp = Path(root) / pp
+        return str(pp.resolve())
+    except Exception:
+        return str(p)
+
+
+def _edited_files(root, pending=None) -> set:
+    """Distinct, canonicalized, non-.forge files touched so far (from edits.txt) plus any
+    `pending` targets of the edit currently being evaluated — so escalation is decided
+    BEFORE the spreading edit is authorized, not backfilled afterwards."""
+    if root is None:
+        return set()
+    forge = str((Path(root) / FORGE_DIR).resolve())
+    out = set()
+    raw = []
+    log = Path(root) / FORGE_DIR / "edits.txt"
+    if log.exists():
+        try:
+            raw += [ln.strip() for ln in log.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        except Exception:
+            pass
+    raw += [str(p).strip() for p in (pending or []) if str(p).strip()]
+    for ln in raw:
+        c = _canon_edit(ln, root)
+        if c == forge or c.startswith(forge + os.sep):
+            continue  # never count .forge/ self-authoring
+        out.add(c)
+    return out
+
+
+def _edited_file_count(root, pending=None) -> int:
+    return len(_edited_files(root, pending))
+
+
+def _good_acceptance(spec) -> int:
+    return len([c for c in spec.get("acceptance_criteria", [])
+                if isinstance(c, dict) and _nonempty((c.get("verify") or {}).get("value"))])
+
+
+def _spec_lock_path(root) -> Path:
+    return Path(root) / FORGE_DIR / "spec.lock"
+
+
+def _acc_identity(spec: dict) -> set:
+    """Identity of each runnable acceptance check ('type|normalized-command') — so a check
+    can't be swapped for a weaker command while keeping the count."""
+    out = set()
+    for c in spec.get("acceptance_criteria", []):
+        if isinstance(c, dict):
+            v = c.get("verify") or {}
+            if _nonempty(v.get("value")):
+                out.add(f"{(v.get('type') or '').strip().lower()}|{_norm(v.get('value'))}")
+    return out
+
+
+def _write_spec_lock(spec: dict, root) -> None:
+    """Each time the SPEC gate passes, MONOTONICALLY merge the approved promises into the
+    lock (union of forbidden_paths + acceptance identities). The model can STRENGTHEN the
+    spec (add forbidden / checks / evidence) but can never WEAKEN it to pass done against a
+    softer spec — even across a LIGHT->STANDARD escalation re-approval."""
+    if root is None:
+        return
+    p = _spec_lock_path(root)
+    prev = {"forbidden_paths": [], "acceptance": []}
+    if p.exists():
+        try:
+            prev = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            prev = {"forbidden_paths": [], "acceptance": []}
+    forbidden = sorted(set(prev.get("forbidden_paths", [])) |
+                       {x for x in spec.get("forbidden_paths", []) if isinstance(x, str) and x.strip()})
+    acc = sorted(set(prev.get("acceptance", [])) | _acc_identity(spec))
+    try:
+        p.write_text(json.dumps({"forbidden_paths": forbidden, "acceptance": acc}), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _spec_weakened(spec: dict, root) -> list:
+    """In-session weakening guard: a spec.lock (written when the spec was approved) must not
+    lose any forbidden_path or any approved acceptance check. (No lock => nothing to compare;
+    the worktree-accept path, where the worker is unrestricted, relies on its diff check, not
+    this — see adapters/codex/ENFORCEMENT.md.)"""
+    if root is None:
+        return []
+    p = _spec_lock_path(root)
+    if not p.exists():
+        return []
+    try:
+        lock = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    e = []
+    cur_f = {x for x in spec.get("forbidden_paths", []) if isinstance(x, str) and x.strip()}
+    removed = [x for x in lock.get("forbidden_paths", []) if x not in cur_f]
+    if removed:
+        e.append(f"forbidden_paths weakened after approval (removed {removed}) — the spec is "
+                 "frozen against weakening; restore them or justify each removal.")
+    cur_a = _acc_identity(spec)
+    gone = [a for a in lock.get("acceptance", []) if a not in cur_a]
+    if gone:
+        e.append(f"{len(gone)} approved acceptance check(s) were removed or altered after "
+                 "approval — add evidence to the approved checks instead of changing them.")
+    return e
+
+
+def _effective_grade(spec: dict, root, pending=None) -> str:
+    """Grade drives enforcement depth. Base is the scaffold-written `.forge/GRADE`
+    (authoritative — a model cannot downgrade in spec.json to skip checks). It is then
+    escalated UP (never down) by RUNTIME signals: a change that spreads across >=2 files
+    is no longer trivial, so a LIGHT task earns the STANDARD decision spec. This is the
+    dynamic lever — simple one-file fixes stay LIGHT (cheap), spreading changes pay more."""
+    base = None
     if root is not None:
         gf = Path(root) / FORGE_DIR / "GRADE"
         if gf.exists():
             try:
                 g = gf.read_text(encoding="utf-8").strip().upper()
-                if g in ("LIGHT", "STANDARD", "HEAVY"):
-                    return g
+                if g in GRADE_RANK:
+                    base = g
             except Exception:
                 pass
-    return (spec.get("grade") or "STANDARD").upper()
+    if base is None:
+        # No valid GRADE lock. If a task is ACTIVE, the lock was tampered/lost — fail
+        # closed at HEAVY (the strictest), since the original could have been HEAVY and we
+        # must not silently downgrade a lost lock.
+        if root is not None and (Path(root) / FORGE_DIR / ACTIVE_NAME).exists():
+            base = "HEAVY"
+        else:
+            base = (spec.get("grade") or "LIGHT").upper()
+            if base not in GRADE_RANK:
+                base = "LIGHT"
+    rank = GRADE_RANK[base]
+    if _edited_file_count(root, pending) >= 2:
+        rank = max(rank, GRADE_RANK["STANDARD"])  # multi-file (incl. pending) => >= STANDARD
+    return next(g for g, r in GRADE_RANK.items() if r == rank)
 
 
 # ---------------------------------------------------------------- spec gate ---
-def gate_spec(spec: dict, root=None) -> list[str]:
+def gate_spec(spec: dict, root=None, pending=None) -> list[str]:
     """Grade-tiered. LIGHT pays almost nothing (token lever); STANDARD adds the
     core decision artifacts; HEAVY enforces the full Fable depth. `root` (when
-    given) lets must_read paths be checked for real existence."""
-    grade = _effective_grade(spec, root)
-    e: list[str] = []
+    given) lets must_read paths be checked for real existence. `pending` = files the
+    edit under evaluation will touch (so multi-file escalation fires before it lands)."""
+    grade = _effective_grade(spec, root, pending)
+    # Weakening guard runs at SPEC validation too — PreToolUse authorizes edits on the SPEC
+    # gate, so a softened spec must not pass it (not only blocked later at done).
+    e: list[str] = list(_spec_weakened(spec, root))
 
     # ---- ALL grades: minimal viable spec ----
     rg, raw = spec.get("restated_goal", ""), spec.get("raw_goal", "")
@@ -333,9 +477,9 @@ def gate_spec(spec: dict, root=None) -> list[str]:
 
 
 # ---------------------------------------------------------------- done gate ---
-def gate_done(spec: dict, root=None) -> list[str]:
-    grade = _effective_grade(spec, root)
-    e = gate_spec(spec, root)  # done implies spec still valid
+def gate_done(spec: dict, root=None, pending=None) -> list[str]:
+    grade = _effective_grade(spec, root, pending)
+    e = gate_spec(spec, root, pending)  # done implies spec still valid
     acc = [c for c in spec.get("acceptance_criteria", []) if isinstance(c, dict)]
     if not acc:
         e.append("no acceptance_criteria to verify.")
@@ -441,20 +585,41 @@ def cmd_scaffold(args) -> int:
     root = Path(args.root).resolve()
     fdir = root / FORGE_DIR
     fdir.mkdir(parents=True, exist_ok=True)
+    fresh = not active_path(root).exists()  # no active task => this scaffold starts a new one
     grade = (args.grade or _grade_for(args.goal or "")).upper()
+    if grade not in GRADE_RANK:
+        grade = "STANDARD"
+    gf = fdir / "GRADE"
+    # Authoritative grade lock. On a FRESH task, overwrite any stale GRADE left by a closed
+    # task (else a prior LIGHT would poison a later HEAVY). Mid-task, NEVER downgrade — and
+    # if the lock is missing/invalid mid-task it was lost/tampered, so fail closed to HEAVY
+    # rather than recreating a cheaper lock.
+    if not fresh:
+        prev = None
+        if gf.exists():
+            try:
+                p = gf.read_text(encoding="utf-8").strip().upper()
+                if p in GRADE_RANK:
+                    prev = p
+            except Exception:
+                prev = None
+        if prev is None:
+            grade = "HEAVY"
+        elif GRADE_RANK[prev] > GRADE_RANK[grade]:
+            grade = prev
+    gf.write_text(grade, encoding="utf-8")
     sp = spec_path(root)
-    if not sp.exists():
+    if fresh or not sp.exists():
         spec = dict(SPEC_TEMPLATE)
         spec["raw_goal"] = args.goal or ""
         spec["grade"] = grade
         sp.write_text(json.dumps(spec, indent=2, ensure_ascii=False), encoding="utf-8")
-    # Authoritative grade lock: the gate reads enforcement level from here, not from
-    # spec.json — so a model can't silently downgrade HEAVY->LIGHT to skip checks.
-    gf = fdir / "GRADE"
-    if not gf.exists():
-        gf.write_text(grade, encoding="utf-8")
+        if fresh:
+            for stale in (fdir / "edits.txt", _spec_lock_path(root)):
+                if stale.exists():
+                    stale.unlink()  # a new task must not inherit prior edits / spec lock
     active_path(root).write_text(args.goal or "", encoding="utf-8")
-    print(f"forge: task active at {fdir} (grade {gf.read_text(encoding='utf-8').strip()})")
+    print(f"forge: task active at {fdir} (grade {grade})")
     return 0
 
 
@@ -464,14 +629,15 @@ LIGHT_KO = ("오타", "주석", "포맷", "줄바꿈", "띄어쓰기", "문구",
 
 
 def _grade_for(text: str) -> str:
-    """Grade scales gate depth — the token lever. LIGHT tasks pay almost nothing;
-    HEAVY (auth/payments/security) pay full enforcement, matching where Fable
-    itself escalates."""
+    """Grade scales gate depth — the token lever. Default LIGHT (pay almost nothing:
+    restated_goal + a runnable acceptance check, which is the part that actually caught
+    bugs in benchmarking); HEAVY (auth/payments/security) pays full enforcement up front.
+    A LIGHT task is escalated to STANDARD at RUNTIME by `_effective_grade` once the change
+    proves non-trivial (spreads across >=2 files) — so simple fixes stay cheap and only
+    real, spreading changes pay for the full decision spec."""
     if HEAVY_RE.search(text) or any(k in text for k in HEAVY_KO):
         return "HEAVY"
-    if LIGHT_RE.search(text) or any(k in text for k in LIGHT_KO):
-        return "LIGHT"
-    return "STANDARD"
+    return "LIGHT"
 
 
 def cmd_validate(args) -> int:
@@ -480,12 +646,25 @@ def cmd_validate(args) -> int:
     if err:
         print(f"forge {args.gate} gate: BLOCKED\n  - {err}", file=sys.stderr)
         return 1
-    errs = gate_spec(spec, root) if args.gate == "spec" else gate_done(spec, root)
+    # pending edit targets come via env (FORGE_PENDING json), never argv, so a path can't
+    # inject gate flags.
+    pending = None
+    pj = os.environ.get("FORGE_PENDING")
+    if pj:
+        try:
+            v = json.loads(pj)
+            if isinstance(v, list):
+                pending = [str(x) for x in v]
+        except Exception:
+            pending = None
+    errs = gate_spec(spec, root, pending) if args.gate == "spec" else gate_done(spec, root, pending)
     if errs:
         print(f"forge {args.gate} gate: BLOCKED ({len(errs)} unmet)", file=sys.stderr)
         for x in errs:
             print(f"  - {x}", file=sys.stderr)
         return 1
+    if args.gate == "spec":
+        _write_spec_lock(spec, root)  # freeze the approved promises against later weakening
     print(f"forge {args.gate} gate: PASS")
     return 0
 
@@ -526,9 +705,12 @@ def cmd_close(args) -> int:
                 print("  (refusing --force without FORGE_BYPASS=1 — forcing is an audited bypass)", file=sys.stderr)
             return 1
         print(f"forge: FORCED close past {len(de)} unmet done-gate item(s) via FORGE_BYPASS.", file=sys.stderr)
-    ap = active_path(root)
-    if ap.exists():
-        ap.unlink()
+    # Clear per-task state so the NEXT task starts clean (no stale grade lock / edit log
+    # leaking into it). Keep spec.json as the audit record of what was just closed.
+    for f in (active_path(root), root / FORGE_DIR / "GRADE",
+              root / FORGE_DIR / "edits.txt", _spec_lock_path(root)):
+        if f.exists():
+            f.unlink()
     print("forge: task closed")
     return 0
 

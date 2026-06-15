@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import read_payload, project_root, run_gate, tool_name, edited_paths, EDIT_TOOLS  # noqa: E402
+from common import read_payload, project_root, run_gate, tool_name, edited_paths, under_forge, EDIT_TOOLS  # noqa: E402
 
 
 def main() -> int:
@@ -24,7 +24,9 @@ def main() -> int:
     root = project_root(payload)
     if run_gate("active", "--root", root)[0] != 0:
         return 0
-    paths = [p for p in edited_paths(payload) if ".forge/" not in p]
+    # canonical containment, not substring (so '.forge/../src/a.py' is recorded, and a
+    # symlinked '.forge' alias can't smuggle an edit out of the log)
+    paths = [p for p in edited_paths(payload) if not under_forge(p, root)]
     if not paths:
         return 0
     log = Path(root) / ".forge" / "edits.txt"

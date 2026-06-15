@@ -268,7 +268,24 @@ class Classify(unittest.TestCase):
     def test_grade_for(self):
         self.assertEqual(fg._grade_for("fix payment auth token"), "HEAVY")
         self.assertEqual(fg._grade_for("fix a typo in the comment"), "LIGHT")
-        self.assertEqual(fg._grade_for("add a sort function"), "STANDARD")
+        self.assertEqual(fg._grade_for("add a sort function"), "LIGHT")  # default LIGHT now
+
+    def test_effective_grade_escalates_on_multifile(self):
+        d = Path(tempfile.mkdtemp())
+        (d / ".forge").mkdir()
+        (d / ".forge" / "GRADE").write_text("LIGHT", encoding="utf-8")
+        self.assertEqual(fg._effective_grade({}, d), "LIGHT")  # no edits yet
+        (d / ".forge" / "edits.txt").write_text("a.py\n", encoding="utf-8")
+        self.assertEqual(fg._effective_grade({}, d), "LIGHT")  # one file stays LIGHT
+        (d / ".forge" / "edits.txt").write_text("a.py\nb.py\n", encoding="utf-8")
+        self.assertEqual(fg._effective_grade({}, d), "STANDARD")  # >=2 files escalates
+
+    def test_effective_grade_never_downgrades_heavy(self):
+        d = Path(tempfile.mkdtemp())
+        (d / ".forge").mkdir()
+        (d / ".forge" / "GRADE").write_text("HEAVY", encoding="utf-8")
+        (d / ".forge" / "edits.txt").write_text("a.py\nb.py\n", encoding="utf-8")
+        self.assertEqual(fg._effective_grade({}, d), "HEAVY")  # escalation is up-only
 
 
 class Contract(unittest.TestCase):
@@ -319,6 +336,71 @@ class Contract(unittest.TestCase):
             with redirect_stdout(buf):
                 fg.main(["contract", "--root", d])
             self.assertIn("similar_implementations", buf.getvalue())
+
+
+class DynamicGrade(unittest.TestCase):
+    """Default LIGHT + runtime escalation, hardened per review."""
+
+    def test_fresh_scaffold_overwrites_stale_grade(self):
+        d = Path(tempfile.mkdtemp())
+        fg.main(["scaffold", "--root", str(d), "--goal", "fix a typo"])
+        self.assertEqual((d / ".forge" / "GRADE").read_text().strip(), "LIGHT")
+        (d / ".forge" / "ACTIVE").unlink()  # simulate a closed task leaving GRADE behind
+        fg.main(["scaffold", "--root", str(d), "--goal", "add auth token check"])
+        self.assertEqual((d / ".forge" / "GRADE").read_text().strip(), "HEAVY")  # not stale LIGHT
+
+    def test_close_clears_task_state(self):
+        d = Path(tempfile.mkdtemp())
+        fg.main(["scaffold", "--root", str(d), "--goal", "fix typo"])
+        (d / ".forge" / "edits.txt").write_text("a.py\n", encoding="utf-8")
+        s = json.load(open(d / ".forge" / "spec.json"))
+        s["restated_goal"] = "fix the typo, scoped"; s["acceptance_criteria"] = [
+            {"criterion": "c", "verify": {"type": "command", "value": "true"}, "evidence": "ran ok"}]
+        json.dump(s, open(d / ".forge" / "spec.json", "w"))
+        fg.main(["close", "--root", str(d)])
+        self.assertFalse((d / ".forge" / "GRADE").exists())
+        self.assertFalse((d / ".forge" / "edits.txt").exists())
+        self.assertFalse((d / ".forge" / "ACTIVE").exists())
+
+    def test_pending_escalates_before_edit_lands(self):
+        d = Path(tempfile.mkdtemp())
+        (d / ".forge").mkdir(); (d / ".forge" / "GRADE").write_text("LIGHT")
+        (d / ".forge" / "edits.txt").write_text("/x/a.py\n", encoding="utf-8")  # 1 file so far
+        self.assertEqual(fg._effective_grade({}, d), "LIGHT")
+        self.assertEqual(fg._effective_grade({}, d, pending=[str(d / "b.py")]), "STANDARD")
+
+    def test_canonical_path_dedup(self):
+        d = Path(tempfile.mkdtemp()); (d / ".forge").mkdir()
+        (d / ".forge" / "edits.txt").write_text(f"a.py\n./a.py\n{d}/a.py\n", encoding="utf-8")
+        self.assertEqual(fg._edited_file_count(d), 1)  # same file, three spellings
+
+    def test_absolute_forge_path_excluded(self):
+        d = Path(tempfile.mkdtemp()); (d / ".forge").mkdir()
+        (d / ".forge" / "edits.txt").write_text(f"{d}/.forge/spec.json\nreal.py\n", encoding="utf-8")
+        self.assertEqual(fg._edited_file_count(d), 1)  # only real.py, .forge excluded
+
+    def test_active_without_grade_fails_closed_heavy(self):
+        d = Path(tempfile.mkdtemp()); (d / ".forge").mkdir()
+        (d / ".forge" / "ACTIVE").write_text("x")  # active task but GRADE lock missing/tampered
+        self.assertEqual(fg._effective_grade({}, d), "HEAVY")  # strictest floor, never a downgrade
+
+    def test_midtask_lost_grade_rescaffold_forces_heavy(self):
+        d = Path(tempfile.mkdtemp())
+        fg.main(["scaffold", "--root", str(d), "--goal", "fix bug"])  # LIGHT, ACTIVE set
+        (d / ".forge" / "GRADE").unlink()  # lock lost mid-task
+        fg.main(["scaffold", "--root", str(d), "--goal", "fix bug"])  # re-scaffold (still ACTIVE)
+        self.assertEqual((d / ".forge" / "GRADE").read_text().strip(), "HEAVY")
+
+    def test_spec_cannot_weaken_forbidden_after_approval(self):
+        d = Path(tempfile.mkdtemp()); (d / ".forge").mkdir()
+        approved = {"forbidden_paths": ["config/*"],
+                    "acceptance_criteria": [{"criterion": "c", "verify": {"type": "command", "value": "true"}}]}
+        fg._write_spec_lock(approved, d)  # snapshot at spec-gate pass
+        weakened = dict(approved); weakened["forbidden_paths"] = []  # removed the guard
+        self.assertTrue(any("weakened" in x for x in fg._spec_weakened(weakened, d)))
+        # strengthening (adding another forbidden path) is fine
+        stronger = dict(approved); stronger["forbidden_paths"] = ["config/*", "secrets/*"]
+        self.assertEqual(fg._spec_weakened(stronger, d), [])
 
 
 class OnOffState(unittest.TestCase):
@@ -383,6 +465,35 @@ class OnOffState(unittest.TestCase):
         self.tog("project", "on")  # should clear the legacy OFF and set STATE=on
         self.assertFalse((self.d / ".forge" / "OFF").exists())
         self.assertEqual(fg.effective_state(self.d, "S1"), "on")
+
+
+class HookGuards(unittest.TestCase):
+    """Hook-level enforcement: rename dest parsing + gate-state edit protection."""
+
+    def setUp(self):
+        hooks = str(Path(__file__).resolve().parents[1] / "adapters" / "hooks")
+        if hooks not in sys.path:
+            sys.path.insert(0, hooks)
+
+    def test_move_to_dest_parsed(self):
+        import common
+        got = set(common.edited_paths({"tool_name": "apply_patch", "tool_input": {
+            "command": "*** Update File: a.py\n*** Move to: b.py"}}))
+        self.assertEqual(got, {"a.py", "b.py"})  # rename dest counted
+
+    def test_gate_state_protected_spec_allowed(self):
+        import pre_tool_use as pt
+        import common
+        root = str(Path(tempfile.mkdtemp()))  # real dir so realpath is stable
+        self.assertTrue(pt._is_protected_state(f"{root}/.forge/GRADE", root))
+        self.assertTrue(pt._is_protected_state(".forge/edits.txt", root))
+        self.assertTrue(pt._is_protected_state(f"{root}/.forge/STATE", root))
+        self.assertFalse(pt._is_protected_state(f"{root}/.forge/spec.json", root))
+        self.assertTrue(common.is_spec_authoring(f"{root}/.forge/spec.json", root))
+        self.assertFalse(pt._is_protected_state("src/main.py", root))
+        # canonicalization: '.forge/../src/a.py' is NOT gate state (escapes the substring trap)
+        self.assertFalse(pt._is_protected_state(".forge/../src/a.py", root))
+        self.assertFalse(common.under_forge(".forge/../src/a.py", root))
 
 
 if __name__ == "__main__":

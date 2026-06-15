@@ -67,6 +67,26 @@ weaker model on the gate produces a spec and evidence it otherwise would skip;
 whether that closes the gap to a reference model is the benchmark question, not a
 claim made here.
 
+**In-session hooks only intercept edit tools, not shell writes.** The PreToolUse
+matcher gates `Edit|Write|MultiEdit|NotebookEdit|apply_patch`. A model that writes a
+file through the shell instead (`bash: echo ... > f`, `sed -i`, `tee`) is **not**
+intercepted in-session — that write skips the SPEC gate and the protected-`.forge`
+checks, and PostToolUse will not log it. So the in-session gate is **best-effort
+discipline**, not a hard sandbox. The hard guarantee is the **worktree-accept**
+boundary: it diffs the whole worktree with `git`, so it catches every change
+regardless of how it was written, and applies only a gate-passing, forbidden-clean
+diff to the real repo. Use worktree-accept (or a CI gate on the diff) when you need
+enforcement that a shell write cannot bypass.
+
+**Inside a worktree-accept run the worker is unrestricted**, so gate state it writes
+there (`.forge/GRADE`, `.forge/spec.lock`, `.forge/edits.txt`) is **not trusted** — a
+gaming model could weaken it. The boundary that still holds is the **git diff**:
+worktree-accept derives the real edited-file set from `git diff` (not the model's log)
+and applies only a gate-passing, forbidden-clean diff. The in-session weakening guards
+(spec.lock, grade floor, protected-`.forge`) are defenses for the **interactive/Claude
+in-session** path where the hooks actually fire; for an adversarial model in headless
+exec, trust the diff-level check (and a human/CI diff review), not the in-worker state.
+
 ## Runtime findings (verified live against codex-cli 0.139)
 
 Resolved by driving the real binary:

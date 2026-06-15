@@ -7,17 +7,22 @@ Edits to `.forge/` (authoring the spec) are always allowed.
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (read_payload, project_root, run_gate, tool_name,  # noqa: E402
-                    edit_targets_blob, edited_paths, is_off, session_id, EDIT_TOOLS)
+                    edit_targets_blob, edited_paths, is_off, session_id,
+                    under_forge, is_spec_authoring, EDIT_TOOLS)
 
 
-def _is_forge(p: str) -> bool:
-    return ".forge/" in p or p.rstrip("/").endswith(".forge")
+def _is_protected_state(p: str, root: str) -> bool:
+    """Gate-controlled state (GRADE / ACTIVE / edits.txt / STATE / OFF / sessions/...) —
+    a model writing these could downgrade its own enforcement, so it is never allowed.
+    Canonical containment (not substring) so '.forge/../x' or symlink aliases can't bypass."""
+    return under_forge(p, root) and not is_spec_authoring(p, root)
 
 
 def main() -> int:
@@ -40,8 +45,23 @@ def main() -> int:
     # whose patch text merely mentions ".forge/" would bypass), so require all paths.
     paths = edited_paths(payload)
     if paths:
-        if all(_is_forge(p) for p in paths):
-            return 0
+        if any(_is_protected_state(p, root) for p in paths):
+            sys.stderr.write(
+                "fable-forge: editing gate state (.forge/GRADE | ACTIVE | edits.txt | "
+                "STATE | sessions) is not allowed — it would let an active task downgrade "
+                "its own enforcement. Author .forge/spec.json only.\n")
+            return 2
+        spec_targets = [p for p in paths if is_spec_authoring(p, root)]
+        if spec_targets and len(spec_targets) != len(paths):
+            # A single patch that edits spec.json AND implementation files would be validated
+            # against the OLD on-disk spec, letting it soften the spec and land code at once.
+            sys.stderr.write(
+                "fable-forge: do not edit .forge/spec.json and implementation files in the "
+                "same change — write the spec in its own tool call, let the gate validate it, "
+                "then edit code separately.\n")
+            return 2
+        if spec_targets:
+            return 0  # authoring the spec artifact only -> allowed
         # real (non-.forge) file present -> do NOT exempt; gate it
     elif ".forge/" in edit_targets_blob(payload):
         return 0  # couldn't parse paths but references .forge -> conservative allow
@@ -49,6 +69,12 @@ def main() -> int:
     if run_gate("active", "--root", root)[0] != 0:
         return 0  # no active task -> nothing to enforce
 
+    # Pass the files THIS edit will touch so multi-file escalation (LIGHT->STANDARD) is
+    # decided before the spreading edit is authorized, not backfilled at done. Passed via
+    # env (NOT argv) so a path like '--pending' / '--root' can't inject gate arguments.
+    pend = [p for p in paths if not under_forge(p, root)]
+    if pend:
+        os.environ["FORGE_PENDING"] = json.dumps(pend)
     rc, out = run_gate("validate", "--root", root, "--gate", "spec")
     if rc != 0:
         sys.stderr.write(

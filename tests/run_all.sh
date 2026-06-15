@@ -42,9 +42,9 @@ python3 "$GATE" close --root "$D" --force >/dev/null 2>&1; chk "$?" "1" "--force
 
 echo "== 3. runtime-agnostic hook block (clean payloads) =="
 python3 - "$D" "$HOOKS" >/tmp/hooks.txt 2>&1 <<'PY'
-import json, os, subprocess, sys
+import json, os, subprocess, sys, tempfile
 D, HOOKS = sys.argv[1], sys.argv[2]
-env = dict(os.environ, CLAUDE_PROJECT_DIR=D); env.pop("FORGE_BYPASS", None)
+env = dict(os.environ, CLAUDE_PROJECT_DIR=D, FORGE_HOME=tempfile.mkdtemp()); env.pop("FORGE_BYPASS", None)
 os.makedirs(D+"/.forge", exist_ok=True)
 json.dump({"grade":"STANDARD","raw_goal":"x"}, open(D+"/.forge/spec.json","w"))
 open(D+"/.forge/ACTIVE","w").write("x")
@@ -80,7 +80,7 @@ command -v git >/dev/null 2>&1 && {
     && printf 'v1\n' > app.py && mkdir -p config && printf 'policy\n' > config/policy.py \
     && git add -A && git commit -qm base ) >/dev/null 2>&1
   BASE="$(git -C "$RR" rev-parse HEAD)"
-  spec_into(){ mkdir -p "$1/.forge"; echo x > "$1/.forge/ACTIVE"; cat > "$1/.forge/spec.json" <<JSON
+  spec_into(){ mkdir -p "$1/.forge"; echo x > "$1/.forge/ACTIVE"; echo STANDARD > "$1/.forge/GRADE"; cat > "$1/.forge/spec.json" <<JSON
 {"grade":"STANDARD","raw_goal":"add feature","restated_goal":"Add a feature module without touching config policy, scoped to feature.py.",
 "non_goals":["no config changes"],"constraints":{"invariant":["config/policy.py unchanged"]},
 "must_read":[{"path":"app.py","authority_reason":"owns the entry the feature joins"}],
@@ -151,7 +151,7 @@ import json, os, subprocess, sys, tempfile
 HOOKS, GATE = sys.argv[1], sys.argv[2]
 D = tempfile.mkdtemp(); open(D + "/real.py", "w").write("x=1")
 subprocess.run([sys.executable, GATE, "scaffold", "--root", D, "--goal", "add x"], capture_output=True)
-env = dict(os.environ, CLAUDE_PROJECT_DIR=D); env.pop("FORGE_BYPASS", None)
+env = dict(os.environ, CLAUDE_PROJECT_DIR=D, FORGE_HOME=tempfile.mkdtemp()); env.pop("FORGE_BYPASS", None)
 def pre(raw, e=env): return subprocess.run([sys.executable, f"{HOOKS}/pre_tool_use.py"], input=raw, capture_output=True, text=True, env=e).returncode
 def out(n, c): print(f"{'PASS' if c else 'FAIL'}|{n}")
 ap = lambda *ps: json.dumps({"tool_name": "apply_patch", "tool_input": {"command": "".join(f"*** Update File: {p}\n+x\n" for p in ps)}, "cwd": D})

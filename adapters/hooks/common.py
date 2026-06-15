@@ -16,7 +16,10 @@ GATE = Path(__file__).resolve().parents[2] / "gates" / "forge_gate.py"
 # Claude Code edit tools + Codex's apply_patch (the tool_name Codex reports for edits).
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "create_file", "str_replace", "apply_patch"}
 
-_PATCH_FILE_RE = re.compile(r"\*\*\* (?:Update|Add|Delete) File:\s*(.+)")
+# apply_patch headers: "*** Update/Add/Delete File: <path>" and the rename destination
+# "*** Move to: <path>" — the move dest must count too, or a rename escapes escalation /
+# forbidden-path checks (only the source would be logged).
+_PATCH_FILE_RE = re.compile(r"\*\*\* (?:(?:Update|Add|Delete) File|Move to):\s*(.+)")
 
 
 def read_payload() -> dict:
@@ -77,6 +80,29 @@ def edited_paths(payload: dict) -> list[str]:
     if isinstance(cmd, str) and "*** " in cmd:
         out += [m.strip() for m in _PATCH_FILE_RE.findall(cmd)]
     return out
+
+
+def canon_path(p: str, root: str) -> str:
+    """Resolved absolute path (follows symlinks, collapses ../ and ./) — substring checks
+    on '.forge/' are bypassable (e.g. '.forge/../src/a.py', '/other/.forge/...', a symlink),
+    so all gate-state decisions canonicalize first."""
+    base = p if os.path.isabs(p) else os.path.join(root, p)
+    try:
+        return os.path.realpath(base)
+    except Exception:
+        return os.path.normpath(base)
+
+
+def under_forge(p: str, root: str) -> bool:
+    """True iff p canonically lives inside <root>/.forge (this project's gate state)."""
+    c = canon_path(p, root)
+    forge = canon_path(".forge", root)
+    return c == forge or c.startswith(forge + os.sep)
+
+
+def is_spec_authoring(p: str, root: str) -> bool:
+    """The ONE gate artifact a model may write — exactly <root>/.forge/spec.json."""
+    return canon_path(p, root) == canon_path(os.path.join(".forge", "spec.json"), root)
 
 
 def edit_targets_blob(payload: dict) -> str:
